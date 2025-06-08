@@ -867,231 +867,659 @@ async function handleHomePage(request, env) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root {
-            --bg-color: #47494d;
-            --card-bg: #272424;
-            --text-color: #f7f7f7;
-            --accent-color: #4a90e2;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #475569;
+            --shadow: rgba(0, 0, 0, 0.25);
         }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            max-width: 100%;
-            margin: 10px auto;
-            padding: 10px;
-            background: var(--bg-color);
-            font-family: 'Segoe UI', sans-serif;
-            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1e293b 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
         }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px var(--shadow);
+        }
+
+        .header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .admin-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .admin-link:hover {
+            background: var(--accent-primary);
+            color: white;
+            transform: translateY(-1px);
+        }
+        .entries-container {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px var(--shadow);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .entries-header {
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .entries-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .entries-count {
+            background: var(--accent-primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
         #entries {
             height: 60vh;
             overflow-y: auto;
-            border-radius: 8px;
-            background: var(--card-bg);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 15px;
-            margin-bottom: 20px;
+            padding: 1rem;
         }
+
         .entry {
-            margin: 10px 0;
-            padding: 8px 12px;
-            border-radius: 6px;
-            background: var(--card-bg);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #000000;
+            margin: 0 0 1rem 0;
+            padding: 1.25rem;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             position: relative;
             cursor: pointer;
             display: flex;
-            align-items: baseline;
-            min-height: auto;
-            transition: background 0.2s;
+            align-items: flex-start;
+            gap: 1rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .entry-text {
-            flex: 1;
-            word-break: break-word;
-            margin-right: 15px;
-            color: var(--text-color);
-            white-space: pre-wrap;
-            line-height: 1.2;
-            display: inline-flex;
-            padding-top: 2px;
-            transform: translateY(0.1em);
-        }
+
         .entry:hover {
-            background: #3e85cc;
-            transform: translateX(5px);
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
         }
+
+        .entry-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .entry-text {
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .entry-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .entry-time {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .entry-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        .btn {
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            text-decoration: none;
+            min-width: 70px;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-secondary);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
         .entry-note {
-            color: #7f8c8d;
-            font-size: 0.9em;
-            margin-top: 8px;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-primary);
             display: none;
         }
-        .delete-btn {
-            background: none;
-            border: none;
-            color: #ff4444;
-            cursor: pointer;
-            margin-left: 10px;
-            padding: 5px;
+
+        .pinned {
+            border-left: 4px solid var(--warning);
+            background: rgba(245, 158, 11, 0.1);
         }
-        .delete-btn:hover {
-            opacity: 0.8;
+
+        .pinned::before {
+            content: "📌";
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            font-size: 0.9rem;
         }
-        .copy-btn {
-            background: #2ecc71;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            margin-left: 10px;
-            transition: opacity 0.2s;
-            cursor: pointer;
-            font-size: 0.9em;
+
+        .hidden-text {
+            color: var(--text-muted);
+            font-style: italic;
+            opacity: 0.7;
         }
+
+        .form-container {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px var(--shadow);
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
         #new-text {
             width: 100%;
-            height: 100px;
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #454040;
-            background: #4f5150;
-            border-radius: 4px;
+            height: 120px;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 12px;
             resize: vertical;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            transition: border-color 0.2s ease;
         }
-        .copy-btn:hover {
-            opacity: 0.8;
+
+        #new-text:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        .pin-btn {
-            background: #ffc107;
-            color: #000;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            margin-left: 10px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transform: scale(0.95);
+
+        #new-text::placeholder {
+            color: var(--text-muted);
         }
-        .pinned {
-            border-left: 4px solid #ffc107;
-            background: rgba(255, 193, 7, 0.1);
-            order: -1;
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
         }
-        .hide-btn {
-            background: #9b59b6;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            margin-left: 10px;
-            cursor: pointer;
-            font-size: 0.9em;
+
+        .input-group input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: border-color 0.2s ease;
         }
-        .hidden-text {
-            color: #95a5a6;
-            font-style: italic;
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        @media (max-width: 600px) {
-            body {
-                padding: 5px;
+
+        .input-group input::placeholder {
+            color: var(--text-muted);
+        }
+        /* 滚动条样式 */
+        #entries::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #entries::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        #entries::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        #entries::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state h3 {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
             }
+
+            .header {
+                padding: 1.5rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .admin-link {
+                position: static;
+                display: inline-block;
+                margin-top: 1rem;
+            }
+
             .entry {
                 flex-direction: column;
-                align-items: flex-start;
-                padding: 10px;
+                gap: 1rem;
+                padding: 1rem;
             }
-            .copy-btn, .delete-btn {
-                margin-top: 8px;
-                padding: 8px 12px;
-                font-size: 16px;
-            }
-            #new-text {
-                height: 80px;
-                font-size: 16px;
-            }
-            input[type="text"] {
+
+            .entry-actions {
+                flex-direction: row;
+                flex-wrap: wrap;
                 width: 100%;
-                margin: 8px 0;
-                padding: 8px;
-                font-size: 16px;
             }
-            button {
-                padding: 10px 16px;
-                font-size: 16px;
+
+            .btn {
+                flex: 1;
+                min-width: 80px;
+                padding: 0.75rem;
+                font-size: 0.9rem;
             }
-            .entry-text {
-                font-size: 16px;
+
+            #new-text {
+                height: 100px;
+                font-size: 16px; /* 防止 iOS 缩放 */
             }
-            button, .entry {
-                -webkit-tap-highlight-color: transparent;
-                touch-action: manipulation;
+
+            .input-group {
+                flex-direction: column;
+                gap: 0.75rem;
             }
-            button {
-                min-width: 44px;
-                min-height: 44px;
+
+            .input-group input {
+                font-size: 16px; /* 防止 iOS 缩放 */
+            }
+
+            #entries {
+                height: 50vh;
+            }
+
+            .entries-header {
+                padding: 1rem;
+            }
+
+            .entries-title {
+                font-size: 1.1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .entry-actions {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+
+            .btn {
+                font-size: 0.8rem;
+                padding: 0.6rem;
+            }
+        }
+
+        /* 深色模式优化 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --shadow: rgba(0, 0, 0, 0.4);
+            }
+        }
+
+        /* 高对比度模式 */
+        @media (prefers-contrast: high) {
+            :root {
+                --border: #64748b;
+                --text-muted: #64748b;
+            }
+        }
+
+        /* 减少动画 */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
 </head>
 <body>
-    <div id="entries"></div>
-    <textarea id="new-text" placeholder="输入文本内容..."></textarea>
-    <div>
-        <input type="text" id="new-note" placeholder="输入备注（可选）...">
-        <button onclick="saveEntry()">保存</button>
-        <button onclick="window.location.href='/admin'" style="background: #6c757d; margin-left: 10px;">管理员</button>
+    <a href="/admin" class="admin-link">🛠️ 管理员</a>
+
+    <div class="container">
+        <div class="header">
+            <h1>🗂️ Paste Web</h1>
+            <p>现代化的网络剪贴板 • 支持 Markdown 和 LaTeX 公式</p>
+        </div>
+
+        <div class="entries-container">
+            <div class="entries-header">
+                <h2 class="entries-title">📋 剪贴板内容</h2>
+                <span class="entries-count" id="entries-count">0</span>
+            </div>
+            <div id="entries">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载内容...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <div class="form-group">
+                <label for="new-text">✏️ 添加新内容</label>
+                <textarea id="new-text" placeholder="输入文本内容...支持 Markdown 语法和 LaTeX 数学公式 ($E=mc^2$)"></textarea>
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="new-note" placeholder="💡 添加备注（可选）">
+                <button class="btn btn-primary" onclick="saveEntry()">
+                    💾 保存
+                </button>
+            </div>
+        </div>
     </div>
     <script>
         // 加载条目
         function loadEntries() {
             fetch('/api/entries')
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('网络请求失败');
+                    return res.json();
+                })
                 .then(data => {
-                    const sorted = data.sort((a, b) => {
-                        if (a.pinned === b.pinned) {
-                            return new Date(b.time) - new Date(a.time);
-                        }
-                        return a.pinned ? -1 : 1;
-                    });
-
-                    const entriesDiv = document.getElementById('entries');
-                    entriesDiv.innerHTML = sorted.map(entry => {
-                        const isHidden = entry.hidden === true;
-                        const rawText = entry.text || '';
-                        const mdHtml = marked.parse(rawText);
-                        const safeHtml = DOMPurify.sanitize(mdHtml);
-                        
-                        return \`
-                        <div class="entry \${entry.pinned ? 'pinned' : ''}"
-                             data-id="\${entry.id}"
-                             onclick="toggleNote(this)">
-                            <div class="entry-text \${entry.hidden ? 'hidden-text' : ''}">
-                                \${isHidden ? '*** 内容已隐藏 ***' : safeHtml}
-                            </div>
-                            <button class="copy-btn"
-                                    data-text="\${rawText.replace(/"/g, '&quot;')}"
-                                    data-hidden="\${isHidden}"
-                                    onclick="copyText(this)">复制
-                            </button>
-                            <button class="hide-btn" onclick="toggleHidden('\${entry.id}', \${entry.hidden})">
-                                \${entry.hidden ? '取消隐藏' : '隐藏'}
-                            </button>
-                            <button class="pin-btn" onclick="togglePin('\${entry.id}', \${entry.pinned})">
-                                \${entry.pinned ? '取消置顶' : '置顶'}
-                            </button>
-                            <button class="delete-btn" onclick="deleteEntry('\${entry.id}')">🗑️</button>
-                            \${entry.note ? \`<div class="entry-note">备注：\${entry.note}</div>\` : ''}
-                        </div>\`;
-                    }).join('');
-                    
-                    setTimeout(() => {
-                        renderMathInElement(entriesDiv, {
-                            delimiters: [
-                                {left: '$$', right: '$$', display: true},
-                                {left: '$', right: '$', display: false}
-                            ],
-                            throwOnError: false
-                        });
-                    }, 0);
+                    displayEntries(data);
+                })
+                .catch(error => {
+                    console.error('加载失败:', error);
+                    showError('加载失败，请检查网络连接');
                 });
+        }
+
+        // 显示条目
+        function displayEntries(data) {
+            const entriesDiv = document.getElementById('entries');
+            const countElement = document.getElementById('entries-count');
+
+            // 更新计数
+            countElement.textContent = data.length;
+
+            if (!data || data.length === 0) {
+                entriesDiv.innerHTML = \`
+                    <div class="empty-state">
+                        <h3>📝 暂无内容</h3>
+                        <p>开始添加你的第一条剪贴板内容吧！</p>
+                    </div>\`;
+                return;
+            }
+
+            const sorted = data.sort((a, b) => {
+                if (a.pinned === b.pinned) {
+                    return new Date(b.time) - new Date(a.time);
+                }
+                return a.pinned ? -1 : 1;
+            });
+
+            entriesDiv.innerHTML = sorted.map(entry => {
+                const isHidden = entry.hidden === true;
+                const rawText = entry.text || '';
+                const mdHtml = marked.parse(rawText);
+                const safeHtml = DOMPurify.sanitize(mdHtml);
+
+                return \`
+                <div class="entry \${entry.pinned ? 'pinned' : ''}"
+                     data-id="\${entry.id}"
+                     onclick="toggleNote(this)">
+                    <div class="entry-content">
+                        <div class="entry-text \${entry.hidden ? 'hidden-text' : ''}">
+                            \${isHidden ? '🔒 内容已隐藏' : safeHtml}
+                        </div>
+                        \${entry.note ? \`<div class="entry-note">💡 \${escapeHtml(entry.note)}</div>\` : ''}
+                        <div class="entry-meta">
+                            <span class="entry-time">🕒 \${entry.time || '未知时间'}</span>
+                            \${entry.pinned ? '<span>📌 已置顶</span>' : ''}
+                            \${entry.hidden ? '<span>🙈 已隐藏</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="entry-actions">
+                        <button class="btn btn-success"
+                                data-text="\${rawText.replace(/"/g, '&quot;')}"
+                                data-hidden="\${isHidden}"
+                                onclick="copyText(this, event)">
+                            📋 复制
+                        </button>
+                        <button class="btn btn-secondary" onclick="toggleHidden('\${entry.id}', \${entry.hidden}, event)">
+                            \${entry.hidden ? '👁️ 显示' : '🙈 隐藏'}
+                        </button>
+                        <button class="btn btn-warning" onclick="togglePin('\${entry.id}', \${entry.pinned}, event)">
+                            \${entry.pinned ? '📌 取消' : '📌 置顶'}
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteEntry('\${entry.id}', event)">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>\`;
+            }).join('');
+
+            // 渲染数学公式
+            setTimeout(() => {
+                if (window.renderMathInElement) {
+                    renderMathInElement(entriesDiv, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }, 100);
+        }
+
+        // HTML 转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const entriesDiv = document.getElementById('entries');
+            entriesDiv.innerHTML = \`
+                <div class="empty-state">
+                    <h3>❌ 出错了</h3>
+                    <p>\${message}</p>
+                    <button class="btn btn-primary" onclick="loadEntries()">🔄 重试</button>
+                </div>\`;
         }
 
         function togglePin(id, isPinned) {
@@ -1105,40 +1533,89 @@ async function handleHomePage(request, env) {
             }).then(() => loadEntries());
         }
 
-        function copyText(button) {
+        // 复制文本
+        function copyText(button, event) {
+            event.stopPropagation();
+
             const isHidden = button.dataset.hidden === 'true';
             const textToCopy = isHidden ?
-                '*** 内容已隐藏 ***' :
+                '🔒 内容已隐藏' :
                 button.dataset.text.replace(/&quot;/g, '"');
 
-            const textarea = document.createElement('textarea');
-            textarea.value = textToCopy;
-            textarea.style.position = 'fixed';
-            document.body.appendChild(textarea);
-
             if (navigator.clipboard) {
-                navigator.clipboard.writeText(textarea.value)
-                    .then(() => showAlert('✅ 已复制到剪贴板'))
-                    .catch(() => showAlert('❌ 复制失败 (权限被拒绝)'));
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => showToast('✅ 已复制到剪贴板', 'success'))
+                    .catch(() => showToast('❌ 复制失败', 'error'));
             } else {
+                // 降级方案
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
                 textarea.select();
+
                 try {
                     const success = document.execCommand('copy');
-                    showAlert(success ? '✅ 已复制！' : '❌ 复制失败');
+                    showToast(success ? '✅ 已复制！' : '❌ 复制失败', success ? 'success' : 'error');
                 } catch {
-                    showAlert('❌ 复制操作不被支持');
+                    showToast('❌ 复制操作不被支持', 'error');
                 }
-            }
 
-            document.body.removeChild(textarea);
+                document.body.removeChild(textarea);
+            }
         }
 
-        function showAlert(msg) {
-            const alertBox = document.createElement('div');
-            alertBox.style = 'position:fixed; top:20px; right:20px; padding:10px; background:#4CAF50; color:white; border-radius:5px;';
-            alertBox.textContent = msg;
-            document.body.appendChild(alertBox);
-            setTimeout(() => alertBox.remove(), 2000);
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = \`
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                max-width: 300px;
+            \`;
+
+            const colors = {
+                success: '#10b981',
+                error: '#ef4444',
+                warning: '#f59e0b',
+                info: '#3b82f6'
+            };
+
+            toast.style.background = colors[type] || colors.info;
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 添加动画样式
+        if (!document.getElementById('toast-styles')) {
+            const style = document.createElement('style');
+            style.id = 'toast-styles';
+            style.textContent = \`
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            \`;
+            document.head.appendChild(style);
         }
 
         function toggleNote(element) {
@@ -1148,25 +1625,55 @@ async function handleHomePage(request, env) {
             }
         }
 
+        // 保存条目
         function saveEntry() {
             const text = document.getElementById('new-text').value.trim();
             const note = document.getElementById('new-note').value.trim();
 
-            if (!text) return alert('文本内容不能为空');
+            if (!text) {
+                showToast('❌ 文本内容不能为空', 'error');
+                return;
+            }
+
+            const saveBtn = document.querySelector('.btn-primary');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '⏳ 保存中...';
+            saveBtn.disabled = true;
 
             fetch('/api/save', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: \`text=\${encodeURIComponent(text)}&note=\${encodeURIComponent(note)}\`
-            }).then(() => {
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => Promise.reject(text));
+                }
+                return response.text();
+            })
+            .then(() => {
                 document.getElementById('new-text').value = '';
                 document.getElementById('new-note').value = '';
+                showToast('✅ 保存成功', 'success');
                 loadEntries();
+            })
+            .catch(error => {
+                console.error('保存失败:', error);
+                showToast(\`❌ 保存失败: \${error}\`, 'error');
+            })
+            .finally(() => {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
             });
         }
 
-        function deleteEntry(id) {
-            const password = prompt('请输入管理员密码：');
+        // 删除条目
+        function deleteEntry(id, event) {
+            event.stopPropagation();
+
+            if (!confirm('确定要删除这个条目吗？')) return;
+
+            const password = prompt('🔐 请输入管理员密码：');
             if (!password) return;
 
             fetch('/api/delete', {
@@ -1177,23 +1684,109 @@ async function handleHomePage(request, env) {
             .then(response => response.text())
             .then(result => {
                 if (result === 'OK') {
+                    showToast('✅ 删除成功', 'success');
                     loadEntries();
                 } else {
-                    alert('删除失败: ' + result);
+                    showToast(\`❌ 删除失败: \${result}\`, 'error');
                 }
+            })
+            .catch(error => {
+                showToast('❌ 网络错误', 'error');
             });
         }
 
-        function toggleHidden(id, isHidden) {
-            const password = prompt('请输入管理员密码：');
+        // 切换隐藏状态
+        function toggleHidden(id, isHidden, event) {
+            event.stopPropagation();
+
+            const password = prompt('🔐 请输入管理员密码：');
             if (!password) return;
 
             fetch('/api/hide', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: \`id=\${id}&hidden=\${!isHidden}&password=\${encodeURIComponent(password)}\`
-            }).then(() => loadEntries());
+            })
+            .then(response => response.text())
+            .then(result => {
+                if (result === 'OK') {
+                    showToast(isHidden ? '✅ 已显示内容' : '✅ 已隐藏内容', 'success');
+                    loadEntries();
+                } else {
+                    showToast(\`❌ 操作失败: \${result}\`, 'error');
+                }
+            })
+            .catch(error => {
+                showToast('❌ 网络错误', 'error');
+            });
         }
+
+        // 切换置顶状态
+        function togglePin(id, isPinned, event) {
+            event.stopPropagation();
+
+            const password = prompt('🔐 请输入管理员密码：');
+            if (!password) return;
+
+            fetch('/api/pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: \`id=\${id}&pinned=\${!isPinned}&password=\${encodeURIComponent(password)}\`
+            })
+            .then(response => response.text())
+            .then(result => {
+                if (result === 'OK') {
+                    showToast(isPinned ? '✅ 已取消置顶' : '✅ 已置顶', 'success');
+                    loadEntries();
+                } else {
+                    showToast(\`❌ 操作失败: \${result}\`, 'error');
+                }
+            })
+            .catch(error => {
+                showToast('❌ 网络错误', 'error');
+            });
+        }
+
+        // 切换备注显示
+        function toggleNote(element) {
+            const note = element.querySelector('.entry-note');
+            if (note) {
+                note.style.display = note.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Enter 或 Cmd+Enter 保存
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                saveEntry();
+            }
+
+            // Ctrl+R 或 Cmd+R 刷新（阻止默认行为并重新加载）
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                loadEntries();
+            }
+        });
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEntries();
+
+            // 自动聚焦到文本框
+            const textArea = document.getElementById('new-text');
+            if (textArea) {
+                textArea.focus();
+            }
+        });
+
+        // 页面可见性变化时重新加载（可选）
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                loadEntries();
+            }
+        });
 
         loadEntries();
     </script>
