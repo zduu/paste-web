@@ -1,0 +1,27 @@
+name = "paste-web"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV存储绑定
+# 注意：在 Cloudflare Pages 中，KV 绑定通过 Dashboard 配置
+# 在 Workers 部署中，需要创建真实的 KV 命名空间并更新下面的 ID
+[[kv_namespaces]]
+binding = "PASTE_KV"
+id = ""  # 请在此处填入真实的 KV 命名空间 ID
+preview_id = ""  # 请在此处填入预览环境的 KV 命名空间 ID
+
+# 环境变量
+[vars]
+ADMIN_PASSWORD = "zhouzhou12203"
+ACCESS_PASSWORD = ""  # 留空表示不需要访问密码，设置值则启用访问保护
+RATE_LIMIT_MAX = "5"
+RATE_LIMIT_WINDOW = "60"
+
+# 生产环境配置
+[env.production]
+name = "paste-web-prod"
+
+# 开发环境配置  
+[env.development]
+name = "paste-web-dev"

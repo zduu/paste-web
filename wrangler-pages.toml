@@ -1,0 +1,12 @@
+name = "paste-web-pages"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages 不需要 KV 绑定配置，通过 Dashboard 设置
+
+# 环境变量（通过 Pages Dashboard 设置）
+[vars]
+ADMIN_PASSWORD = "zhouzhou12203"
+ACCESS_PASSWORD = ""
+RATE_LIMIT_MAX = "5"
+RATE_LIMIT_WINDOW = "60"
