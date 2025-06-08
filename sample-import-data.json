@@ -1,0 +1,47 @@
+{
+  "exportTime": "2024-01-15T10:30:00.000Z",
+  "totalEntries": 5,
+  "exportedBy": "admin",
+  "entries": [
+    {
+      "id": "sample-001",
+      "text": "# 欢迎使用 Paste Web\n\n这是一个示例条目，展示了 **Markdown** 支持。\n\n- 支持列表\n- 支持 `代码`\n- 支持数学公式：$E = mc^2$",
+      "note": "这是一个示例备注",
+      "time": "2024-01-15T10:00:00.000Z",
+      "pinned": true,
+      "hidden": false
+    },
+    {
+      "id": "sample-002",
+      "text": "## 数学公式示例\n\n行内公式：$\\sum_{i=1}^{n} x_i$\n\n块级公式：\n$$\\int_{0}^{\\infty} e^{-x} dx = 1$$",
+      "note": "数学公式演示",
+      "time": "2024-01-15T09:30:00.000Z",
+      "pinned": false,
+      "hidden": false
+    },
+    {
+      "id": "sample-003",
+      "text": "```javascript\n// 代码示例\nfunction hello() {\n    console.log('Hello, Paste Web!');\n}\n\nhello();\n```",
+      "note": "代码块示例",
+      "time": "2024-01-15T09:00:00.000Z",
+      "pinned": false,
+      "hidden": false
+    },
+    {
+      "id": "sample-004",
+      "text": "这是一个隐藏的条目，包含敏感信息。\n\n密码：admin123\n用户名：administrator",
+      "note": "敏感信息",
+      "time": "2024-01-15T08:30:00.000Z",
+      "pinned": false,
+      "hidden": true
+    },
+    {
+      "id": "sample-005",
+      "text": "## 任务清单\n\n- [x] 完成项目设计\n- [x] 实现基础功能\n- [ ] 添加导入功能\n- [ ] 优化用户体验\n- [ ] 编写文档",
+      "note": "项目进度跟踪",
+      "time": "2024-01-15T08:00:00.000Z",
+      "pinned": true,
+      "hidden": false
+    }
+  ]
+}

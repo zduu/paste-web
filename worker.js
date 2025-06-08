@@ -320,6 +320,138 @@ function generateAdminPage(env) {
             transform: translateX(26px);
         }
 
+        /* 模态框样式 */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #444;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: var(--text-color);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .import-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            color: #aaa;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .import-tab {
+            display: none;
+        }
+
+        .import-tab.active {
+            display: block;
+        }
+
+        #import-text {
+            width: 100%;
+            min-height: 200px;
+            background: #222;
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .import-options {
+            margin: 15px 0;
+        }
+
+        .import-options label {
+            display: block;
+            margin: 8px 0;
+            cursor: pointer;
+        }
+
+        .import-options input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .file-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .import-preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: #333;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .preview-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #444;
+            font-size: 12px;
+        }
+
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+
         @media (max-width: 768px) {
             .admin-container {
                 padding: 10px;
@@ -327,6 +459,19 @@ function generateAdminPage(env) {
 
             .stats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+
+            .import-tabs {
+                flex-direction: column;
+            }
+
+            .tab-btn {
+                text-align: left;
             }
         }
     </style>
@@ -404,12 +549,67 @@ function generateAdminPage(env) {
             <div style="margin-bottom: 20px;">
                 <button class="btn btn-primary" onclick="loadAllEntries()">刷新数据</button>
                 <button class="btn btn-success" onclick="exportData()">导出数据</button>
+                <button class="btn btn-info" onclick="showImportModal()">导入数据</button>
                 <button class="btn btn-warning" onclick="clearHiddenEntries()">清理隐藏条目</button>
                 <button class="btn btn-danger" onclick="clearAllData()">清空所有数据</button>
             </div>
 
             <div class="entries-admin" id="entries-admin">
                 <p>点击"刷新数据"加载所有条目...</p>
+            </div>
+        </div>
+
+        <!-- 导入数据模态框 -->
+        <div id="import-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📥 导入数据</h3>
+                    <span class="close" onclick="closeImportModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="import-tabs">
+                        <button class="tab-btn active" onclick="switchImportTab('paste')">📋 粘贴导入</button>
+                        <button class="tab-btn" onclick="switchImportTab('file')">📁 文件导入</button>
+                    </div>
+
+                    <div id="paste-import" class="import-tab active">
+                        <p>将导出的JSON数据粘贴到下方文本框中：</p>
+                        <textarea id="import-text" placeholder="请粘贴JSON格式的导出数据..." rows="10"></textarea>
+                        <div class="import-options">
+                            <label>
+                                <input type="checkbox" id="merge-data" checked>
+                                合并数据（保留现有数据）
+                            </label>
+                            <label>
+                                <input type="checkbox" id="skip-duplicates" checked>
+                                跳过重复条目
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="importFromText()">开始导入</button>
+                    </div>
+
+                    <div id="file-import" class="import-tab">
+                        <p>选择要导入的JSON文件：</p>
+                        <input type="file" id="import-file" accept=".json" onchange="handleFileSelect(event)">
+                        <div class="file-info" id="file-info"></div>
+                        <div class="import-options">
+                            <label>
+                                <input type="checkbox" id="merge-data-file" checked>
+                                合并数据（保留现有数据）
+                            </label>
+                            <label>
+                                <input type="checkbox" id="skip-duplicates-file" checked>
+                                跳过重复条目
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="importFromFile()" disabled id="import-file-btn">开始导入</button>
+                    </div>
+
+                    <div class="import-preview" id="import-preview" style="display: none;">
+                        <h4>📋 导入预览</h4>
+                        <div id="preview-content"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -860,6 +1060,268 @@ function generateAdminPage(env) {
             }
         }
 
+        // 导入功能相关
+        let importData = null;
+
+        // 显示导入模态框
+        function showImportModal() {
+            document.getElementById('import-modal').style.display = 'flex';
+        }
+
+        // 关闭导入模态框
+        function closeImportModal() {
+            document.getElementById('import-modal').style.display = 'none';
+            // 清理数据
+            document.getElementById('import-text').value = '';
+            document.getElementById('import-file').value = '';
+            document.getElementById('file-info').innerHTML = '';
+            document.getElementById('import-preview').style.display = 'none';
+            document.getElementById('import-file-btn').disabled = true;
+            importData = null;
+        }
+
+        // 切换导入标签
+        function switchImportTab(tab) {
+            // 移除所有活动状态
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.import-tab').forEach(tab => tab.classList.remove('active'));
+
+            // 激活选中的标签
+            event.target.classList.add('active');
+            document.getElementById(tab + '-import').classList.add('active');
+        }
+
+        // 处理文件选择
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                document.getElementById('file-info').innerHTML = '';
+                document.getElementById('import-file-btn').disabled = true;
+                return;
+            }
+
+            if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+                showAlert('请选择JSON格式的文件', 'danger');
+                return;
+            }
+
+            // 显示文件信息
+            const fileInfo = \`
+                <strong>文件名:</strong> \${file.name}<br>
+                <strong>大小:</strong> \${(file.size / 1024).toFixed(2)} KB<br>
+                <strong>类型:</strong> \${file.type || 'application/json'}
+            \`;
+            document.getElementById('file-info').innerHTML = fileInfo;
+
+            // 读取文件内容
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (validateImportData(data)) {
+                        importData = data;
+                        document.getElementById('import-file-btn').disabled = false;
+                        showImportPreview(data);
+                    }
+                } catch (error) {
+                    showAlert('文件格式错误：' + error.message, 'danger');
+                    document.getElementById('import-file-btn').disabled = true;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 验证导入数据格式
+        function validateImportData(data) {
+            if (!data || typeof data !== 'object') {
+                showAlert('数据格式错误：不是有效的JSON对象', 'danger');
+                return false;
+            }
+
+            // 检查是否有entries数组
+            if (!data.entries || !Array.isArray(data.entries)) {
+                showAlert('数据格式错误：缺少entries数组', 'danger');
+                return false;
+            }
+
+            // 验证entries中的每个条目
+            for (let i = 0; i < data.entries.length; i++) {
+                const entry = data.entries[i];
+                if (!entry.id || !entry.text || !entry.time) {
+                    showAlert(\`数据格式错误：第\${i + 1}个条目缺少必要字段(id, text, time)\`, 'danger');
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // 显示导入预览
+        function showImportPreview(data) {
+            const previewDiv = document.getElementById('import-preview');
+            const contentDiv = document.getElementById('preview-content');
+
+            const totalEntries = data.entries.length;
+            const pinnedCount = data.entries.filter(e => e.pinned).length;
+            const hiddenCount = data.entries.filter(e => e.hidden).length;
+            const withNotesCount = data.entries.filter(e => e.note).length;
+
+            let previewHtml = \`
+                <div style="margin-bottom: 15px;">
+                    <strong>📊 导入统计：</strong><br>
+                    总条目数: \${totalEntries} | 置顶: \${pinnedCount} | 隐藏: \${hiddenCount} | 带备注: \${withNotesCount}
+                </div>
+                <div style="margin-bottom: 10px;"><strong>📋 条目预览（前5条）：</strong></div>
+            \`;
+
+            // 显示前5条数据预览
+            const previewEntries = data.entries.slice(0, 5);
+            previewEntries.forEach((entry, index) => {
+                const textPreview = entry.text.length > 50 ? entry.text.substring(0, 50) + '...' : entry.text;
+                previewHtml += \`
+                    <div class="preview-item">
+                        <strong>\${index + 1}.</strong> \${textPreview}
+                        \${entry.pinned ? ' 📌' : ''}\${entry.hidden ? ' 🙈' : ''}
+                        \${entry.note ? ' 📝' : ''}
+                    </div>
+                \`;
+            });
+
+            if (totalEntries > 5) {
+                previewHtml += \`<div class="preview-item">... 还有 \${totalEntries - 5} 条数据</div>\`;
+            }
+
+            contentDiv.innerHTML = previewHtml;
+            previewDiv.style.display = 'block';
+        }
+
+        // 从文本导入
+        function importFromText() {
+            const text = document.getElementById('import-text').value.trim();
+            if (!text) {
+                showAlert('请输入要导入的JSON数据', 'warning');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(text);
+                if (validateImportData(data)) {
+                    const mergeData = document.getElementById('merge-data').checked;
+                    const skipDuplicates = document.getElementById('skip-duplicates').checked;
+                    executeImport(data, mergeData, skipDuplicates);
+                }
+            } catch (error) {
+                showAlert('JSON格式错误：' + error.message, 'danger');
+            }
+        }
+
+        // 从文件导入
+        function importFromFile() {
+            if (!importData) {
+                showAlert('请先选择有效的文件', 'warning');
+                return;
+            }
+
+            const mergeData = document.getElementById('merge-data-file').checked;
+            const skipDuplicates = document.getElementById('skip-duplicates-file').checked;
+            executeImport(importData, mergeData, skipDuplicates);
+        }
+
+        // 执行导入
+        async function executeImport(data, mergeData, skipDuplicates) {
+            try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                // 显示导入确认
+                const totalEntries = data.entries.length;
+                const confirmMessage = mergeData
+                    ? \`确定要导入 \${totalEntries} 条数据吗？\n\n✅ 将与现有数据合并\n\${skipDuplicates ? '✅ 跳过重复条目' : '❌ 不跳过重复条目'}\`
+                    : \`确定要导入 \${totalEntries} 条数据吗？\n\n⚠️ 这将替换所有现有数据！\n\${skipDuplicates ? '✅ 跳过重复条目' : '❌ 不跳过重复条目'}\`;
+
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+
+                showAlert('正在导入数据，请稍候...', 'info');
+
+                // 准备导入数据
+                let importEntries = data.entries.map(entry => ({
+                    id: entry.id,
+                    text: entry.text,
+                    note: entry.note || '',
+                    time: entry.time,
+                    pinned: entry.pinned || false,
+                    hidden: entry.hidden || false
+                }));
+
+                // 如果需要合并数据，先获取现有数据
+                let finalEntries = importEntries;
+                if (mergeData) {
+                    const response = await fetch('/api/admin/entries', {
+                        headers: {
+                            'Authorization': 'Bearer ' + adminToken
+                        }
+                    });
+
+                    if (response.status === 401) {
+                        handleAuthFailure();
+                        return;
+                    }
+
+                    if (response.ok) {
+                        const existingEntries = await response.json();
+
+                        if (skipDuplicates) {
+                            // 过滤重复条目（基于ID或文本内容）
+                            const existingIds = new Set(existingEntries.map(e => e.id));
+                            const existingTexts = new Set(existingEntries.map(e => e.text));
+
+                            importEntries = importEntries.filter(entry =>
+                                !existingIds.has(entry.id) && !existingTexts.has(entry.text)
+                            );
+                        }
+
+                        finalEntries = [...existingEntries, ...importEntries];
+                    }
+                }
+
+                // 执行导入
+                const importResponse = await fetch('/api/admin/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + adminToken
+                    },
+                    body: JSON.stringify({
+                        entries: finalEntries,
+                        merge: mergeData,
+                        skipDuplicates: skipDuplicates
+                    })
+                });
+
+                if (importResponse.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                if (importResponse.ok) {
+                    const result = await importResponse.json();
+                    showAlert(\`✅ 导入成功！共导入 \${importEntries.length} 条数据\`, 'success');
+                    closeImportModal();
+                    loadAllEntries(); // 刷新数据显示
+                } else {
+                    throw new Error('导入请求失败');
+                }
+
+            } catch (error) {
+                showAlert('导入失败: ' + error.message, 'danger');
+            }
+        }
+
         // 显示提示信息
         function showAlert(message, type) {
             const alertDiv = document.createElement('div');
@@ -906,6 +1368,20 @@ function generateAdminPage(env) {
             const accessProtection = ${env.ACCESS_PASSWORD ? 'true' : 'false'};
             document.getElementById('access-protection').checked = accessProtection;
             toggleAccessProtection();
+
+            // 添加模态框点击外部关闭功能
+            document.getElementById('import-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeImportModal();
+                }
+            });
+
+            // 添加ESC键关闭模态框
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && document.getElementById('import-modal').style.display === 'flex') {
+                    closeImportModal();
+                }
+            });
         });
     </script>
 </body>
@@ -948,6 +1424,8 @@ const worker = {
         return await handleAdminConfig(request, env, corsHeaders);
       } else if (path === '/api/admin/entry' && method === 'POST') {
         return await handleAdminEntry(request, env, corsHeaders);
+      } else if (path === '/api/admin/import' && method === 'POST') {
+        return await handleAdminImport(request, env, corsHeaders);
       } else if (path === '/api/admin/clear' && method === 'POST') {
         return await handleAdminClear(request, env, corsHeaders);
       } else if (path === '/api/verify-access' && method === 'POST') {
@@ -2529,6 +3007,89 @@ async function handleAdminConfig(request, env, corsHeaders) {
     return new Response(JSON.stringify({
       success: false,
       message: '配置更新失败'
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+}
+
+// 处理管理员数据导入
+async function handleAdminImport(request, env, corsHeaders) {
+  if (!verifyAdminAuth(request, env)) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: corsHeaders
+    });
+  }
+
+  try {
+    const { entries, merge, skipDuplicates } = await request.json();
+
+    // 验证导入数据
+    if (!entries || !Array.isArray(entries)) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '无效的导入数据格式'
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+    // 验证每个条目的必要字段
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (!entry.id || !entry.text || !entry.time) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `第${i + 1}个条目缺少必要字段`
+        }), {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+    }
+
+    // 清理和标准化导入数据
+    const cleanEntries = entries.map(entry => ({
+      id: entry.id,
+      text: entry.text,
+      note: entry.note || '',
+      time: entry.time,
+      pinned: entry.pinned || false,
+      hidden: entry.hidden || false,
+      ipv4: entry.ipv4 || 'imported', // 标记为导入数据
+      ipv6: entry.ipv6 || ''
+    }));
+
+    // 保存到KV存储
+    await env.PASTE_KV.put('entries', JSON.stringify(cleanEntries));
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: '数据导入成功',
+      importedCount: cleanEntries.length
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: '导入失败: ' + error.message
     }), {
       status: 500,
       headers: {
