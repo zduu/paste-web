@@ -8,13 +8,14 @@
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production",
     "deploy:dev": "wrangler deploy --env development",
-    "setup": "node setup.js",
-    "migrate": "node migrate.js",
     "logs": "wrangler tail",
     "kv:list": "wrangler kv:key list --binding PASTE_KV",
     "kv:backup": "wrangler kv:key get entries --binding PASTE_KV > backup-$(date +%Y%m%d-%H%M%S).json",
-    "build": "echo 'No build step required'",
-    "start": "npm run setup"
+    "kv:create": "wrangler kv:namespace create PASTE_KV && wrangler kv:namespace create PASTE_KV --preview",
+    "test": "echo 'Testing basic functionality...' && curl -f http://localhost:8787 > /dev/null && echo 'Basic test passed!'",
+    "build": "echo 'No build step required for Cloudflare Workers'",
+    "start": "npm run dev",
+    "setup": "echo 'Run npm run dev for local development or see LOCAL-DEVELOPMENT.md for details'"
   },
   "keywords": [
     "clipboard",

@@ -680,13 +680,32 @@ function generateAdminPage(env) {
                 }
 
                 const entries = await response.json();
-                const dataStr = JSON.stringify(entries, null, 2);
+
+                // 创建完整的导出数据
+                const exportData = {
+                    exportTime: new Date().toISOString(),
+                    totalEntries: entries.length,
+                    exportedBy: 'admin',
+                    entries: entries.map(entry => ({
+                        id: entry.id,
+                        text: entry.text,
+                        note: entry.note || '',
+                        time: entry.time,
+                        pinned: entry.pinned || false,
+                        hidden: entry.hidden || false
+                    }))
+                };
+
+                const dataStr = JSON.stringify(exportData, null, 2);
                 const dataBlob = new Blob([dataStr], {type: 'application/json'});
 
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(dataBlob);
                 link.download = \`paste-web-backup-\${new Date().toISOString().split('T')[0]}.json\`;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(dataBlob.href);
 
                 showAlert('数据导出成功', 'success');
             } catch (error) {
@@ -800,6 +819,8 @@ const worker = {
       // 路由处理
       if (path === '/' && method === 'GET') {
         return await handleHomePage(request, env);
+      } else if (path === '/test' && method === 'GET') {
+        return await handleTestPage();
       } else if (path === '/admin' && method === 'GET') {
         return await handleAdminPage(request, env);
       } else if (path === '/api/admin/login' && method === 'POST') {
@@ -1000,6 +1021,10 @@ async function handleHomePage(request, env) {
             gap: 1rem;
             transition: all 0.2s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            /* 防止横向溢出 */
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .entry:hover {
@@ -1018,9 +1043,17 @@ async function handleHomePage(request, env) {
             color: var(--text-primary);
             white-space: pre-wrap;
             word-break: break-word;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            hyphens: auto;
             line-height: 1.5;
             margin-bottom: 0.5rem;
             font-size: 0.95rem;
+            max-width: 100%;
+            overflow: hidden;
+            /* 强制换行，防止横向溢出 */
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         .entry-meta {
@@ -1292,16 +1325,19 @@ async function handleHomePage(request, env) {
             }
 
             .entry-actions {
-                flex-direction: row;
-                flex-wrap: wrap;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
                 width: 100%;
             }
 
             .btn {
-                flex: 1;
-                min-width: 80px;
-                padding: 0.75rem;
-                font-size: 0.9rem;
+                min-width: 0;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             #new-text {
@@ -1338,12 +1374,20 @@ async function handleHomePage(request, env) {
 
             .entry-actions {
                 grid-template-columns: 1fr 1fr;
-                gap: 0.5rem;
+                gap: 0.4rem;
             }
 
             .btn {
-                font-size: 0.8rem;
-                padding: 0.6rem;
+                font-size: 0.75rem;
+                padding: 0.5rem 0.3rem;
+            }
+
+            .entry-text {
+                font-size: 0.9rem;
+            }
+
+            .entry {
+                padding: 0.8rem;
             }
         }
 
@@ -1386,10 +1430,16 @@ async function handleHomePage(request, env) {
                 <h2 class="entries-title">📋 剪贴板内容</h2>
                 <span class="entries-count" id="entries-count">0</span>
             </div>
+            <div class="search-container" style="padding: 1rem; border-bottom: 1px solid var(--border);">
+                <input type="text" id="search-input" placeholder="🔍 搜索内容..."
+                       style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); border-radius: 6px; font-size: 0.9rem;"
+                       oninput="filterEntries()">
+            </div>
             <div id="entries">
                 <div class="loading">
                     <div class="loading-spinner"></div>
-                    <p>正在加载内容...</p>
+                    <p>正在连接服务器...</p>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">首次访问可能需要几秒钟</p>
                 </div>
             </div>
         </div>
@@ -1397,7 +1447,10 @@ async function handleHomePage(request, env) {
         <div class="form-container">
             <div class="form-group">
                 <label for="new-text">✏️ 添加新内容</label>
-                <textarea id="new-text" placeholder="输入文本内容...支持 Markdown 语法和 LaTeX 数学公式 ($E=mc^2$)"></textarea>
+                <textarea id="new-text" placeholder="输入文本内容...支持 Markdown 语法和 LaTeX 数学公式 ($E=mc^2$)" oninput="updateCharCount()"></textarea>
+                <div style="text-align: right; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    <span id="char-count">0</span> 字符
+                </div>
             </div>
 
             <div class="input-group">
@@ -1409,31 +1462,58 @@ async function handleHomePage(request, env) {
         </div>
     </div>
     <script>
-        // 加载条目
+        // 加载条目（简化版本）
         function loadEntries() {
             fetch('/api/entries')
                 .then(res => {
-                    if (!res.ok) throw new Error('网络请求失败');
+                    console.log('API 响应状态:', res.status, res.statusText);
+                    if (!res.ok) {
+                        throw new Error(\`HTTP \${res.status}: \${res.statusText}\`);
+                    }
                     return res.json();
                 })
                 .then(data => {
+                    console.log('获取到的数据:', data);
                     displayEntries(data);
                 })
                 .catch(error => {
-                    console.error('加载失败:', error);
-                    showError('加载失败，请检查网络连接');
+                    console.error(\`加载失败 (尝试 \${retryCount + 1}/\${maxRetries + 1}):\`, error);
+
+                    if (retryCount < maxRetries) {
+                        // 显示重试信息
+                        const entriesDiv = document.getElementById('entries');
+                        entriesDiv.innerHTML = \`
+                            <div class="loading">
+                                <div class="loading-spinner"></div>
+                                <p>连接中... (尝试 \${retryCount + 2}/\${maxRetries + 1})</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">错误: \${error.message}</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Cloudflare Workers 冷启动需要几秒钟</p>
+                            </div>\`;
+
+                        // 延迟重试
+                        setTimeout(() => {
+                            loadEntries(retryCount + 1);
+                        }, retryDelay);
+                    } else {
+                        // 最终失败
+                        showError('加载失败，请检查网络连接或稍后重试');
+                    }
                 });
         }
 
+        // 全局变量存储所有条目
+        let allEntries = [];
+
         // 显示条目
         function displayEntries(data) {
+            allEntries = data || []; // 保存到全局变量
             const entriesDiv = document.getElementById('entries');
             const countElement = document.getElementById('entries-count');
 
             // 更新计数
-            countElement.textContent = data.length;
+            countElement.textContent = allEntries.length;
 
-            if (!data || data.length === 0) {
+            if (!allEntries || allEntries.length === 0) {
                 entriesDiv.innerHTML = \`
                     <div class="empty-state">
                         <h3>📝 暂无内容</h3>
@@ -1442,7 +1522,14 @@ async function handleHomePage(request, env) {
                 return;
             }
 
-            const sorted = data.sort((a, b) => {
+            renderEntries(allEntries);
+        }
+
+        // 渲染条目列表
+        function renderEntries(entries) {
+            const entriesDiv = document.getElementById('entries');
+
+            const sorted = entries.sort((a, b) => {
                 if (a.pinned === b.pinned) {
                     return new Date(b.time) - new Date(a.time);
                 }
@@ -1452,7 +1539,7 @@ async function handleHomePage(request, env) {
             entriesDiv.innerHTML = sorted.map(entry => {
                 const isHidden = entry.hidden === true;
                 const rawText = entry.text || '';
-                const mdHtml = marked.parse(rawText);
+                            const mdHtml = marked.parse(rawText);
                 const safeHtml = DOMPurify.sanitize(mdHtml);
 
                 return \`
@@ -1492,16 +1579,57 @@ async function handleHomePage(request, env) {
 
             // 渲染数学公式
             setTimeout(() => {
-                if (window.renderMathInElement) {
-                    renderMathInElement(entriesDiv, {
-                        delimiters: [
-                            {left: '$$', right: '$$', display: true},
-                            {left: '$', right: '$', display: false}
-                        ],
-                        throwOnError: false
-                    });
+                try {
+                    // 检查 KaTeX 是否已加载
+                    if (typeof window.renderMathInElement === 'function') {
+                        renderMathInElement(entriesDiv, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '\\[', right: '\\]', display: true}
+                            ],
+                            throwOnError: false,
+                            errorColor: '#cc0000',
+                            strict: false,
+                            trust: false,
+                            macros: {
+                                "\\RR": "\\mathbb{R}",
+                                "\\NN": "\\mathbb{N}",
+                                "\\ZZ": "\\mathbb{Z}",
+                                "\\QQ": "\\mathbb{Q}",
+                                "\\CC": "\\mathbb{C}"
+                            }
+                        });
+                    } else {
+                        console.warn('KaTeX renderMathInElement 未加载，跳过数学公式渲染');
+                    }
+                } catch (error) {
+                    console.warn('数学公式渲染失败:', error);
                 }
-            }, 100);
+            }, 150);
+        }
+
+        // 搜索过滤功能
+        function filterEntries() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+
+            if (!searchTerm) {
+                renderEntries(allEntries);
+                return;
+            }
+
+            const filtered = allEntries.filter(entry => {
+                const text = (entry.text || '').toLowerCase();
+                const note = (entry.note || '').toLowerCase();
+                return text.includes(searchTerm) || note.includes(searchTerm);
+            });
+
+            renderEntries(filtered);
+
+            // 更新显示的计数
+            const countElement = document.getElementById('entries-count');
+            countElement.textContent = \`\${filtered.length}/\${allEntries.length}\`;
         }
 
         // HTML 转义函数
@@ -1519,19 +1647,11 @@ async function handleHomePage(request, env) {
                     <h3>❌ 出错了</h3>
                     <p>\${message}</p>
                     <button class="btn btn-primary" onclick="loadEntries()">🔄 重试</button>
+                    <button class="btn btn-secondary" onclick="window.location.reload()">🔄 刷新页面</button>
                 </div>\`;
         }
 
-        function togglePin(id, isPinned) {
-            const password = prompt('请输入管理员密码：');
-            if (!password) return;
 
-            fetch('/api/pin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: \`id=\${id}&pinned=\${!isPinned}&password=\${encodeURIComponent(password)}\`
-            }).then(() => loadEntries());
-        }
 
         // 复制文本
         function copyText(button, event) {
@@ -1618,12 +1738,7 @@ async function handleHomePage(request, env) {
             document.head.appendChild(style);
         }
 
-        function toggleNote(element) {
-            const note = element.querySelector('.entry-note');
-            if (note) {
-                note.style.display = note.style.display === 'none' ? 'block' : 'none';
-            }
-        }
+
 
         // 保存条目
         function saveEntry() {
@@ -1752,6 +1867,67 @@ async function handleHomePage(request, env) {
             const note = element.querySelector('.entry-note');
             if (note) {
                 note.style.display = note.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+
+
+        // 导出数据功能（前端版本）
+        function exportData() {
+            if (!allEntries || allEntries.length === 0) {
+                showToast('❌ 暂无数据可导出', 'warning');
+                return;
+            }
+
+            try {
+                // 创建导出数据
+                const exportData = {
+                    exportTime: new Date().toISOString(),
+                    totalEntries: allEntries.length,
+                    entries: allEntries.map(entry => ({
+                        id: entry.id,
+                        text: entry.text,
+                        note: entry.note || '',
+                        time: entry.time,
+                        pinned: entry.pinned || false,
+                        hidden: entry.hidden || false
+                    }))
+                };
+
+                // 创建下载链接
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = \`paste-web-export-\${new Date().toISOString().split('T')[0]}.json\`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                showToast('✅ 数据导出成功', 'success');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('❌ 导出失败', 'error');
+            }
+        }
+
+        // 更新字符计数
+        function updateCharCount() {
+            const textArea = document.getElementById('new-text');
+            const charCount = document.getElementById('char-count');
+            const length = textArea.value.length;
+            charCount.textContent = length;
+
+            // 根据长度改变颜色
+            if (length > 5000) {
+                charCount.style.color = 'var(--danger)';
+            } else if (length > 2000) {
+                charCount.style.color = 'var(--warning)';
+            } else {
+                charCount.style.color = 'var(--text-muted)';
             }
         }
 
@@ -2422,22 +2598,78 @@ async function handleVerifyAccess(request, env, corsHeaders) {
 // 处理获取条目
 async function handleGetEntries(kv, corsHeaders) {
   try {
-    const entriesData = await kv.get('entries', 'json') || [];
+    console.log('handleGetEntries called');
+    console.log('KV available:', !!kv);
+
+    // 如果没有 KV，返回示例数据用于本地开发
+    if (!kv) {
+      console.warn('KV not available, returning sample data for local development');
+      const sampleEntries = [
+        {
+          id: 'sample-1',
+          text: '欢迎使用剪贴板管理工具！',
+          note: '这是一个示例条目（本地开发模式）',
+          time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+          pinned: false,
+          hidden: false
+        },
+        {
+          id: 'sample-2',
+          text: '# Markdown 支持\n\n这是一个 **粗体** 文本和 *斜体* 文本的示例。\n\n- 列表项 1\n- 列表项 2\n\n数学公式：$E = mc^2$',
+          note: 'Markdown 和 LaTeX 示例',
+          time: new Date(Date.now() - 60000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+          pinned: true,
+          hidden: false
+        }
+      ];
+
+      return new Response(JSON.stringify(sampleEntries), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+    let entriesData;
+    try {
+      entriesData = await kv.get('entries', 'json') || [];
+      console.log('Retrieved entries data:', entriesData);
+    } catch (kvError) {
+      console.error('KV get error:', kvError);
+      // KV 访问失败时返回空数组
+      entriesData = [];
+    }
+
+    // 确保 entriesData 是数组
+    if (!Array.isArray(entriesData)) {
+      console.warn('entriesData is not an array, converting:', entriesData);
+      entriesData = [];
+    }
 
     // 过滤隐藏条目的敏感信息
     const filteredEntries = entriesData.map(entry => {
-      if (entry.hidden) {
-        return {
-          ...entry,
-          text: '', // 隐藏文本内容
-          time: '2025-01-01 00:00:00' // 设置时间使隐藏内容下沉
-        };
+      // 确保 entry 是对象
+      if (!entry || typeof entry !== 'object') {
+        console.warn('Invalid entry found:', entry);
+        return null;
       }
 
       // 移除IP信息
       const { ipv4, ipv6, ...cleanEntry } = entry;
+
+      if (entry.hidden) {
+        return {
+          ...cleanEntry,
+          text: '🔒 内容已隐藏', // 保留占位符文本
+          time: '2025-01-01 00:00:00' // 设置时间使隐藏内容下沉
+        };
+      }
+
       return cleanEntry;
-    });
+    }).filter(entry => entry !== null); // 过滤掉无效条目
+
+    console.log('Filtered entries count:', filteredEntries.length);
 
     return new Response(JSON.stringify(filteredEntries), {
       headers: {
@@ -2447,7 +2679,8 @@ async function handleGetEntries(kv, corsHeaders) {
     });
   } catch (error) {
     console.error('Error getting entries:', error);
-    return new Response('[]', {
+    // 即使出错也返回空数组，确保前端能正常工作
+    return new Response(JSON.stringify([]), {
       headers: {
         'Content-Type': 'application/json',
         ...corsHeaders
