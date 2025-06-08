@@ -416,18 +416,43 @@ function generateAdminPage(env) {
         <div class="admin-section">
             <h2>🔙 返回</h2>
             <button class="btn btn-primary" onclick="window.location.href='/'">返回主页</button>
+            <button class="btn btn-warning" onclick="adminLogout()" style="margin-left: 10px;">退出登录</button>
         </div>
     </div>
 
     <script>
+        // 处理认证失败
+        function handleAuthFailure() {
+            // 清理所有认证信息
+            sessionStorage.removeItem('adminToken');
+            document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+            // 显示错误信息并重定向
+            showAlert('认证已过期，请重新登录', 'warning');
+            setTimeout(() => {
+                window.location.href = '/admin';
+            }, 2000);
+        }
+
         // 加载所有条目（包括隐藏的）
         async function loadAllEntries() {
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/entries', {
                     headers: {
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     }
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error('获取数据失败');
@@ -590,11 +615,17 @@ function generateAdminPage(env) {
         // 切换条目置顶状态
         async function toggleEntryPin(id, isPinned) {
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/entry', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     },
                     body: JSON.stringify({
                         action: 'pin',
@@ -602,6 +633,11 @@ function generateAdminPage(env) {
                         pinned: !isPinned
                     })
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (response.ok) {
                     loadAllEntries();
@@ -616,11 +652,17 @@ function generateAdminPage(env) {
         // 切换条目隐藏状态
         async function toggleEntryHidden(id, isHidden) {
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/entry', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     },
                     body: JSON.stringify({
                         action: 'hide',
@@ -628,6 +670,11 @@ function generateAdminPage(env) {
                         hidden: !isHidden
                     })
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (response.ok) {
                     loadAllEntries();
@@ -669,11 +716,22 @@ function generateAdminPage(env) {
         // 导出数据
         async function exportData() {
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/entries', {
                     headers: {
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     }
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error('获取数据失败');
@@ -718,16 +776,27 @@ function generateAdminPage(env) {
             if (!confirm('确定要删除所有隐藏的条目吗？此操作不可恢复！')) return;
 
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/clear', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     },
                     body: JSON.stringify({
                         action: 'clearHidden'
                     })
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (response.ok) {
                     loadAllEntries();
@@ -746,16 +815,27 @@ function generateAdminPage(env) {
             if (!confirm('再次确认：这将删除所有剪贴板数据！')) return;
 
             try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
                 const response = await fetch('/api/admin/clear', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                        'Authorization': 'Bearer ' + adminToken
                     },
                     body: JSON.stringify({
                         action: 'clearAll'
                     })
                 });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
 
                 if (response.ok) {
                     loadAllEntries();
@@ -765,6 +845,18 @@ function generateAdminPage(env) {
                 }
             } catch (error) {
                 showAlert('清空失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 管理员登出
+        function adminLogout() {
+            if (confirm('确定要退出登录吗？')) {
+                // 清理所有认证信息
+                sessionStorage.removeItem('adminToken');
+                document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+                // 重定向到登录页面
+                window.location.href = '/admin';
             }
         }
 
@@ -781,8 +873,33 @@ function generateAdminPage(env) {
             }, 5000);
         }
 
+        // 初始化管理员认证状态
+        function initializeAdminAuth() {
+            // 从cookie中获取admin_token
+            const cookieHeader = document.cookie;
+            const adminCookie = cookieHeader.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
+
+            // 如果cookie存在但sessionStorage中没有token，则同步
+            if (adminCookie && !sessionStorage.getItem('adminToken')) {
+                sessionStorage.setItem('adminToken', adminCookie);
+            }
+
+            // 如果都没有token，重定向到登录页面
+            if (!adminCookie && !sessionStorage.getItem('adminToken')) {
+                window.location.href = '/admin';
+                return false;
+            }
+
+            return true;
+        }
+
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
+            // 首先初始化认证状态
+            if (!initializeAdminAuth()) {
+                return; // 如果认证失败，停止初始化
+            }
+
             loadAllEntries();
 
             // 检查访问保护状态
@@ -2105,13 +2222,20 @@ async function handleAdminPage(request, env) {
   const cookieHeader = request.headers.get('Cookie');
   const adminCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
 
-  if (!adminToken && !adminCookie) {
-    return generateAdminLoginPage();
-  }
-
   // 验证管理员令牌
   const adminPassword = env.ADMIN_PASSWORD || '123456';
-  if (adminToken !== adminPassword && adminCookie !== adminPassword) {
+
+  // 检查是否有有效的认证信息
+  const hasValidToken = adminToken === adminPassword;
+  const hasValidCookie = adminCookie === adminPassword;
+
+  if (!hasValidToken && !hasValidCookie) {
+    // 如果有无效的cookie，清除它
+    if (adminCookie && adminCookie !== adminPassword) {
+      const response = generateAdminLoginPage();
+      response.headers.set('Set-Cookie', 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
+      return response;
+    }
     return generateAdminLoginPage();
   }
 
@@ -2303,8 +2427,13 @@ async function handleAdminLogin(request, env, corsHeaders) {
 // 验证管理员权限
 function verifyAdminAuth(request, env) {
   const adminToken = request.headers.get('Authorization')?.replace('Bearer ', '');
+  const cookieHeader = request.headers.get('Cookie');
+  const adminCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
+
   const adminPassword = env.ADMIN_PASSWORD || '123456';
-  return adminToken === adminPassword;
+
+  // 检查Authorization header或cookie中的任一有效
+  return adminToken === adminPassword || adminCookie === adminPassword;
 }
 
 // 处理管理员获取所有条目（包括隐藏的）
