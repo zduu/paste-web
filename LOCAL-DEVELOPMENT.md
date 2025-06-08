@@ -11,7 +11,7 @@
 #### 所有平台通用
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/paste-web.git
+git clone https://github.com/zduu/paste-web.git
 cd paste-web
 
 # 2. 安装依赖
@@ -60,7 +60,7 @@ node_modules\.bin\wrangler dev --local
 ### 🎯 默认配置
 ```javascript
 // 本地开发默认配置
-ADMIN_PASSWORD = "zhouzhou12203"
+ADMIN_PASSWORD = "123456"
 ACCESS_PASSWORD = ""  // 无访问密码
 RATE_LIMIT_MAX = "5"
 RATE_LIMIT_WINDOW = "60"
@@ -189,7 +189,7 @@ npx wrangler dev
 - Auto-render: `https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js`
 
 ### Q: 管理员密码错误
-**A**: 本地开发默认密码是 `zhouzhou12203`
+**A**: 本地开发默认密码是 `123456`
 
 ## 🚀 部署到生产环境
 

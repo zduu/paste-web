@@ -42,7 +42,7 @@
    - 选择你 Fork 的仓库
 3. **配置环境变量**：
    ```
-   ADMIN_PASSWORD = zhouzhou12203
+   ADMIN_PASSWORD = 123456
    ACCESS_PASSWORD = (留空或设置访问密码)
    RATE_LIMIT_MAX = 5
    RATE_LIMIT_WINDOW = 60
@@ -64,7 +64,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-username/paste-web.git
+git clone https://github.com/zduu/paste-web.git
 cd paste-web
 
 # 安装依赖
@@ -86,7 +86,7 @@ npx wrangler deploy
 ### 环境变量
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| `ADMIN_PASSWORD` | `zhouzhou12203` | 管理员密码 |
+| `ADMIN_PASSWORD` | `123456` | 管理员密码 |
 | `ACCESS_PASSWORD` | `""` (空) | 网站访问密码，留空则无需密码 |
 | `RATE_LIMIT_MAX` | `5` | 频率限制：最大请求数 |
 | `RATE_LIMIT_WINDOW` | `60` | 频率限制：时间窗口（秒） |
@@ -122,7 +122,7 @@ npx wrangler deploy
 ### 快速开始
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/paste-web.git
+git clone https://github.com/zduu/paste-web.git
 cd paste-web
 
 # 2. 安装依赖

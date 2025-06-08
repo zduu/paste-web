@@ -2110,7 +2110,7 @@ async function handleAdminPage(request, env) {
   }
 
   // 验证管理员令牌
-  const adminPassword = env.ADMIN_PASSWORD || 'zhouzhou12203';
+  const adminPassword = env.ADMIN_PASSWORD || '123456';
   if (adminToken !== adminPassword && adminCookie !== adminPassword) {
     return generateAdminLoginPage();
   }
@@ -2262,7 +2262,7 @@ function generateAdminLoginPage() {
 async function handleAdminLogin(request, env, corsHeaders) {
   try {
     const { password } = await request.json();
-    const adminPassword = env.ADMIN_PASSWORD || 'zhouzhou12203';
+    const adminPassword = env.ADMIN_PASSWORD || '123456';
 
     if (password === adminPassword) {
       return new Response(JSON.stringify({
@@ -2303,7 +2303,7 @@ async function handleAdminLogin(request, env, corsHeaders) {
 // 验证管理员权限
 function verifyAdminAuth(request, env) {
   const adminToken = request.headers.get('Authorization')?.replace('Bearer ', '');
-  const adminPassword = env.ADMIN_PASSWORD || 'zhouzhou12203';
+  const adminPassword = env.ADMIN_PASSWORD || '123456';
   return adminToken === adminPassword;
 }
 
@@ -2772,7 +2772,7 @@ async function handleDelete(request, env, corsHeaders) {
     const id = formData.get('id');
     const password = formData.get('password');
 
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || 'zhouzhou12203')) {
+    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
       return new Response('错误：管理员密码错误', {
         status: 401,
         headers: corsHeaders
@@ -2809,7 +2809,7 @@ async function handleHide(request, env, corsHeaders) {
     const hidden = formData.get('hidden') === 'true';
     const password = formData.get('password');
 
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || 'zhouzhou12203')) {
+    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
       return new Response('错误：管理员密码错误', {
         status: 401,
         headers: corsHeaders
@@ -2844,7 +2844,7 @@ async function handlePin(request, env, corsHeaders) {
     const pinned = formData.get('pinned') === 'true';
     const password = formData.get('password');
 
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || 'zhouzhou12203')) {
+    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
       return new Response('错误：管理员密码错误', {
         status: 401,
         headers: corsHeaders
