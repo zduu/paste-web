@@ -227,6 +227,32 @@ function generateAdminPage(env) {
             word-break: break-word;
         }
 
+        /* 管理员页面链接样式优化 */
+        .entry-text a {
+            color: #00d4ff; /* 明亮的青蓝色，与深色背景形成强对比 */
+            text-decoration: underline;
+            text-decoration-color: rgba(0, 212, 255, 0.6);
+            text-underline-offset: 2px;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .entry-text a:hover {
+            color: #66e5ff; /* 悬停时更亮的青蓝色 */
+            text-decoration-color: #66e5ff;
+            text-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .entry-text a:visited {
+            color: #ff6b9d; /* 已访问链接使用明亮的粉色 */
+        }
+
+        .entry-text a:visited:hover {
+            color: #ff9ec7; /* 已访问链接悬停时的颜色 */
+            text-shadow: 0 0 12px rgba(255, 107, 157, 0.5);
+        }
+
         .entry-actions {
             margin-top: 10px;
         }
@@ -1804,6 +1830,32 @@ async function handleHomePage(request, env) {
             /* 强制换行，防止横向溢出 */
             min-width: 0;
             box-sizing: border-box;
+        }
+
+        /* 链接样式优化 - 确保在深色背景下有良好的可读性 */
+        .entry-text a {
+            color: #00d4ff; /* 明亮的青蓝色，与深色背景形成强对比 */
+            text-decoration: underline;
+            text-decoration-color: rgba(0, 212, 255, 0.6);
+            text-underline-offset: 2px;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .entry-text a:hover {
+            color: #66e5ff; /* 悬停时更亮的青蓝色 */
+            text-decoration-color: #66e5ff;
+            text-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .entry-text a:visited {
+            color: #ff6b9d; /* 已访问链接使用明亮的粉色 */
+        }
+
+        .entry-text a:visited:hover {
+            color: #ff9ec7; /* 已访问链接悬停时的颜色 */
+            text-shadow: 0 0 12px rgba(255, 107, 157, 0.5);
         }
 
         .entry-meta {
