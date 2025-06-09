@@ -452,6 +452,49 @@ function generateAdminPage(env) {
             border-bottom: none;
         }
 
+        .session-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .session-token {
+            font-family: monospace;
+            background: #222;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .session-details {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .session-current {
+            border-color: var(--accent-primary);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .session-badge {
+            background: var(--accent-primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
         @media (max-width: 768px) {
             .admin-container {
                 padding: 10px;
@@ -509,23 +552,39 @@ function generateAdminPage(env) {
             <h2>🔐 安全配置</h2>
             <div class="form-group">
                 <label>访问密码保护</label>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="access-protection" onchange="toggleAccessProtection()">
-                    <span class="slider"></span>
-                </label>
-                <small>启用后，访问网站需要输入密码</small>
-            </div>
-
-            <div class="form-group" id="access-password-group" style="display: none;">
-                <label for="access-password">访问密码</label>
-                <input type="password" id="access-password" placeholder="设置网站访问密码">
-                <button class="btn btn-primary" onclick="updateAccessPassword()">更新访问密码</button>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="access-protection" onchange="toggleAccessProtection()" ${env.ACCESS_PASSWORD ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                    <span id="access-protection-status">
+                        ${env.ACCESS_PASSWORD ? '🔒 已启用' : '🔓 未启用'}
+                    </span>
+                </div>
+                <small style="display: block; margin-top: 8px; color: var(--text-muted);">
+                    ${env.ACCESS_PASSWORD ? '要禁用访问保护，请在 Cloudflare Dashboard 中删除 ACCESS_PASSWORD 环境变量' : '要启用访问保护，请在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量'}
+                </small>
             </div>
 
             <div class="form-group">
-                <label for="admin-password">管理员密码</label>
-                <input type="password" id="admin-password" placeholder="设置新的管理员密码">
-                <button class="btn btn-warning" onclick="updateAdminPassword()">更新管理员密码</button>
+                <label>管理员密码状态</label>
+                <div style="padding: 10px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                    <span>🔑 管理员密码已设置</span>
+                </div>
+                <small style="display: block; margin-top: 8px; color: var(--text-muted);">
+                    要更改管理员密码，请在 Cloudflare Dashboard 中更新 ADMIN_PASSWORD 环境变量
+                </small>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <h2>🔐 会话管理</h2>
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-info" onclick="loadActiveSessions()">刷新会话信息</button>
+                <button class="btn btn-danger" onclick="logoutAllDevices()" style="margin-left: 10px;">退出所有设备</button>
+            </div>
+            <div id="sessions-info">
+                <p>点击"刷新会话信息"查看当前活跃的登录会话...</p>
             </div>
         </div>
 
@@ -617,6 +676,7 @@ function generateAdminPage(env) {
             <h2>🔙 返回</h2>
             <button class="btn btn-primary" onclick="window.location.href='/'">返回主页</button>
             <button class="btn btn-warning" onclick="adminLogout()" style="margin-left: 10px;">退出登录</button>
+            <button class="btn btn-danger" onclick="logoutAllDevices()" style="margin-left: 10px;">退出所有设备</button>
         </div>
     </div>
 
@@ -712,76 +772,7 @@ function generateAdminPage(env) {
             document.getElementById('with-notes').textContent = entries.filter(e => e.note).length;
         }
 
-        // 切换访问保护
-        function toggleAccessProtection() {
-            const checkbox = document.getElementById('access-protection');
-            const passwordGroup = document.getElementById('access-password-group');
-            passwordGroup.style.display = checkbox.checked ? 'block' : 'none';
-        }
 
-        // 更新访问密码
-        async function updateAccessPassword() {
-            const password = document.getElementById('access-password').value;
-            if (!password) {
-                showAlert('请输入访问密码', 'danger');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/admin/config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
-                    },
-                    body: JSON.stringify({
-                        action: 'updateAccessPassword',
-                        password: password
-                    })
-                });
-
-                if (response.ok) {
-                    showAlert('访问密码更新成功', 'success');
-                    document.getElementById('access-password').value = '';
-                } else {
-                    throw new Error('更新失败');
-                }
-            } catch (error) {
-                showAlert('更新访问密码失败: ' + error.message, 'danger');
-            }
-        }
-
-        // 更新管理员密码
-        async function updateAdminPassword() {
-            const password = document.getElementById('admin-password').value;
-            if (!password) {
-                showAlert('请输入新的管理员密码', 'danger');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/admin/config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
-                    },
-                    body: JSON.stringify({
-                        action: 'updateAdminPassword',
-                        password: password
-                    })
-                });
-
-                if (response.ok) {
-                    showAlert('管理员密码更新成功', 'success');
-                    document.getElementById('admin-password').value = '';
-                } else {
-                    throw new Error('更新失败');
-                }
-            } catch (error) {
-                showAlert('更新管理员密码失败: ' + error.message, 'danger');
-            }
-        }
 
         // 更新系统配置
         async function updateSystemConfig() {
@@ -1048,6 +1039,21 @@ function generateAdminPage(env) {
             }
         }
 
+        // 切换访问保护状态显示
+        function toggleAccessProtection() {
+            const checkbox = document.getElementById('access-protection');
+            const statusSpan = document.getElementById('access-protection-status');
+
+            // 这里只是更新UI显示，实际的启用/禁用需要在 Cloudflare Dashboard 中操作
+            if (checkbox.checked) {
+                statusSpan.textContent = '🔒 已启用';
+                showAlert('要启用访问保护，请在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量', 'info');
+            } else {
+                statusSpan.textContent = '🔓 未启用';
+                showAlert('要禁用访问保护，请在 Cloudflare Dashboard 中删除 ACCESS_PASSWORD 环境变量', 'info');
+            }
+        }
+
         // 管理员登出
         function adminLogout() {
             if (confirm('确定要退出登录吗？')) {
@@ -1059,6 +1065,133 @@ function generateAdminPage(env) {
                 window.location.href = '/admin';
             }
         }
+
+        // 退出所有设备登录
+        async function logoutAllDevices() {
+            if (confirm('确定要退出所有设备的登录吗？⚠️ 这将使所有已登录的管理员会话失效，包括当前设备。操作后您需要重新登录才能继续使用管理功能。')) {
+                try {
+                    const adminToken = sessionStorage.getItem('adminToken');
+                    if (!adminToken) {
+                        showAlert('未找到有效的登录令牌，请重新登录', 'warning');
+                        handleAuthFailure();
+                        return;
+                    }
+
+                    // 显示处理中状态
+                    showAlert('正在退出所有设备登录...', 'info');
+
+                    const response = await fetch('/api/admin/logout-all', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + adminToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            showAlert('✅ ' + (result.message || '已成功退出所有设备登录'), 'success');
+
+                            // 延迟后清理本地认证信息并重定向
+                            setTimeout(() => {
+                                sessionStorage.removeItem('adminToken');
+                                document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                                window.location.href = '/admin';
+                            }, 2000);
+                        } else {
+                            throw new Error(result.message || '退出失败');
+                        }
+                    } else if (response.status === 401) {
+                        showAlert('认证已过期，请重新登录', 'warning');
+                        handleAuthFailure();
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || '服务器响应错误');
+                    }
+                } catch (error) {
+                    console.error('Logout all devices error:', error);
+                    showAlert('❌ 退出所有设备失败: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        // 加载活跃会话信息
+        async function loadActiveSessions() {
+            try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                showAlert('正在加载会话信息...', 'info');
+
+                const response = await fetch('/api/admin/sessions', {
+                    headers: {
+                        'Authorization': 'Bearer ' + adminToken
+                    }
+                });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('获取会话信息失败');
+                }
+
+                const data = await response.json();
+                displaySessionsInfo(data.sessions, adminToken);
+                showAlert('会话信息加载成功', 'success');
+            } catch (error) {
+                showAlert('加载会话信息失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 显示会话信息
+        function displaySessionsInfo(sessions, currentToken) {
+            const container = document.getElementById('sessions-info');
+
+            if (!sessions || sessions.length === 0) {
+                container.innerHTML = '<p>当前没有活跃的登录会话</p>';
+                return;
+            }
+
+            const now = Date.now();
+            const sessionsHtml = sessions.map(session => {
+                const isCurrentSession = session.token === currentToken;
+                const createdTime = new Date(session.createdAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+                const timeAgo = Math.floor((now - session.createdAt) / (1000 * 60));
+                const timeAgoText = timeAgo < 60 ? timeAgo + '分钟前' : Math.floor(timeAgo / 60) + '小时前';
+
+                return \`
+                    <div class="session-item \${isCurrentSession ? 'session-current' : ''}">
+                        <div class="session-header">
+                            <div>
+                                <strong>会话 \${session.token.substring(0, 16)}...</strong>
+                                \${isCurrentSession ? '<span class="session-badge">当前会话</span>' : ''}
+                            </div>
+                            <div class="session-token">\${session.token}</div>
+                        </div>
+                        <div class="session-details">
+                            <div><strong>创建时间:</strong> \${createdTime} (\${timeAgoText})</div>
+                            <div><strong>IP地址:</strong> \${session.ip || 'N/A'}</div>
+                            <div><strong>用户代理:</strong> \${session.userAgent || 'Unknown'}</div>
+                        </div>
+                    </div>
+                \`;
+            }).join('');
+
+            container.innerHTML = \`
+                <div style="margin-bottom: 15px;">
+                    <strong>活跃会话数量:</strong> \${sessions.length}
+                </div>
+                \${sessionsHtml}
+            \`;
+        }
+
 
         // 导入功能相关
         let importData = null;
@@ -1336,7 +1469,7 @@ function generateAdminPage(env) {
         }
 
         // 初始化管理员认证状态
-        function initializeAdminAuth() {
+        async function initializeAdminAuth() {
             // 从cookie中获取admin_token
             const cookieHeader = document.cookie;
             const adminCookie = cookieHeader.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
@@ -1346,28 +1479,46 @@ function generateAdminPage(env) {
                 sessionStorage.setItem('adminToken', adminCookie);
             }
 
+            const token = sessionStorage.getItem('adminToken') || adminCookie;
+
             // 如果都没有token，重定向到登录页面
-            if (!adminCookie && !sessionStorage.getItem('adminToken')) {
+            if (!token) {
                 window.location.href = '/admin';
                 return false;
             }
 
-            return true;
+            // 验证令牌有效性（通过尝试获取数据）
+            try {
+                const response = await fetch('/api/admin/entries', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (response.status === 401) {
+                    // 令牌无效，清理并重定向
+                    sessionStorage.removeItem('adminToken');
+                    document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    window.location.href = '/admin';
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Auth verification failed:', error);
+                return false;
+            }
         }
 
         // 页面加载时初始化
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // 首先初始化认证状态
-            if (!initializeAdminAuth()) {
+            if (!(await initializeAdminAuth())) {
                 return; // 如果认证失败，停止初始化
             }
 
             loadAllEntries();
-
-            // 检查访问保护状态
-            const accessProtection = ${env.ACCESS_PASSWORD ? 'true' : 'false'};
-            document.getElementById('access-protection').checked = accessProtection;
-            toggleAccessProtection();
+            loadActiveSessions();
 
             // 添加模态框点击外部关闭功能
             document.getElementById('import-modal').addEventListener('click', function(e) {
@@ -1428,6 +1579,10 @@ const worker = {
         return await handleAdminImport(request, env, corsHeaders);
       } else if (path === '/api/admin/clear' && method === 'POST') {
         return await handleAdminClear(request, env, corsHeaders);
+      } else if (path === '/api/admin/logout-all' && method === 'POST') {
+        return await handleAdminLogoutAll(request, env, corsHeaders);
+      } else if (path === '/api/admin/sessions' && method === 'GET') {
+        return await handleAdminGetSessions(request, env, corsHeaders);
       } else if (path === '/api/verify-access' && method === 'POST') {
         return await handleVerifyAccess(request, env, corsHeaders);
       } else if (path === '/api/entries' && method === 'GET') {
@@ -2695,21 +2850,15 @@ function generateAccessPage() {
 
 // 处理管理员页面
 async function handleAdminPage(request, env) {
-  // 验证管理员身份
-  const adminToken = request.headers.get('Authorization')?.replace('Bearer ', '');
-  const cookieHeader = request.headers.get('Cookie');
-  const adminCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
+  // 使用统一的验证函数
+  const isAuthenticated = await verifyAdminAuth(request, env);
 
-  // 验证管理员令牌
-  const adminPassword = env.ADMIN_PASSWORD || '123456';
+  if (!isAuthenticated) {
+    // 清除无效的cookie
+    const cookieHeader = request.headers.get('Cookie');
+    const adminCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
 
-  // 检查是否有有效的认证信息
-  const hasValidToken = adminToken === adminPassword;
-  const hasValidCookie = adminCookie === adminPassword;
-
-  if (!hasValidToken && !hasValidCookie) {
-    // 如果有无效的cookie，清除它
-    if (adminCookie && adminCookie !== adminPassword) {
+    if (adminCookie) {
       const response = generateAdminLoginPage();
       response.headers.set('Set-Cookie', 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
       return response;
@@ -2860,6 +3009,11 @@ function generateAdminLoginPage() {
   });
 }
 
+// 生成会话令牌
+function generateSessionToken() {
+  return 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+}
+
 // 处理管理员登录
 async function handleAdminLogin(request, env, corsHeaders) {
   try {
@@ -2867,9 +3021,40 @@ async function handleAdminLogin(request, env, corsHeaders) {
     const adminPassword = env.ADMIN_PASSWORD || '123456';
 
     if (password === adminPassword) {
+      // 生成唯一的会话令牌
+      const sessionToken = generateSessionToken();
+      const sessionData = {
+        token: sessionToken,
+        createdAt: Date.now(),
+        userAgent: request.headers.get('User-Agent') || 'Unknown',
+        ip: getClientIP(request)
+      };
+
+      // 获取现有会话
+      let sessions = [];
+      try {
+        sessions = await env.PASTE_KV.get('admin_sessions', 'json') || [];
+      } catch (error) {
+        console.error('Error getting sessions:', error);
+      }
+
+      // 添加新会话
+      sessions.push(sessionData);
+
+      // 清理过期会话（超过24小时）
+      const now = Date.now();
+      sessions = sessions.filter(session => now - session.createdAt < 24 * 60 * 60 * 1000);
+
+      // 保存会话
+      try {
+        await env.PASTE_KV.put('admin_sessions', JSON.stringify(sessions));
+      } catch (error) {
+        console.error('Error saving sessions:', error);
+      }
+
       return new Response(JSON.stringify({
         success: true,
-        token: adminPassword
+        token: sessionToken
       }), {
         headers: {
           'Content-Type': 'application/json',
@@ -2903,20 +3088,43 @@ async function handleAdminLogin(request, env, corsHeaders) {
 }
 
 // 验证管理员权限
-function verifyAdminAuth(request, env) {
+async function verifyAdminAuth(request, env) {
   const adminToken = request.headers.get('Authorization')?.replace('Bearer ', '');
   const cookieHeader = request.headers.get('Cookie');
   const adminCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1];
 
   const adminPassword = env.ADMIN_PASSWORD || '123456';
+  const token = adminToken || adminCookie;
 
-  // 检查Authorization header或cookie中的任一有效
-  return adminToken === adminPassword || adminCookie === adminPassword;
+  // 如果令牌是密码（旧的验证方式），直接验证
+  if (token === adminPassword) {
+    return true;
+  }
+
+  // 如果令牌是会话令牌，验证会话有效性
+  if (token && token.startsWith('session_')) {
+    try {
+      const sessions = await env.PASTE_KV.get('admin_sessions', 'json') || [];
+      const session = sessions.find(s => s.token === token);
+
+      if (session) {
+        // 检查会话是否过期（24小时）
+        const now = Date.now();
+        if (now - session.createdAt < 24 * 60 * 60 * 1000) {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Error verifying session:', error);
+    }
+  }
+
+  return false;
 }
 
 // 处理管理员获取所有条目（包括隐藏的）
 async function handleAdminGetEntries(request, env, corsHeaders) {
-  if (!verifyAdminAuth(request, env)) {
+  if (!(await verifyAdminAuth(request, env))) {
     return new Response('Unauthorized', {
       status: 401,
       headers: corsHeaders
@@ -2943,7 +3151,7 @@ async function handleAdminGetEntries(request, env, corsHeaders) {
 
 // 处理管理员配置更新
 async function handleAdminConfig(request, env, corsHeaders) {
-  if (!verifyAdminAuth(request, env)) {
+  if (!(await verifyAdminAuth(request, env))) {
     return new Response('Unauthorized', {
       status: 401,
       headers: corsHeaders
@@ -2951,35 +3159,14 @@ async function handleAdminConfig(request, env, corsHeaders) {
   }
 
   try {
-    const { action } = await request.json();
+    const requestData = await request.json();
+    const { action } = requestData;
 
     // 注意：在 Cloudflare Workers 中，环境变量是只读的
     // 实际的密码更新需要在 Cloudflare Dashboard 中进行
     // 这里只是返回成功响应，提示用户在 Dashboard 中更新
 
     switch (action) {
-      case 'updateAccessPassword':
-        return new Response(JSON.stringify({
-          success: true,
-          message: '请在 Cloudflare Dashboard 的 Workers 设置中更新 ACCESS_PASSWORD 环境变量'
-        }), {
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
-
-      case 'updateAdminPassword':
-        return new Response(JSON.stringify({
-          success: true,
-          message: '请在 Cloudflare Dashboard 的 Workers 设置中更新 ADMIN_PASSWORD 环境变量'
-        }), {
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
-
       case 'updateSystemConfig':
         return new Response(JSON.stringify({
           success: true,
@@ -3019,7 +3206,7 @@ async function handleAdminConfig(request, env, corsHeaders) {
 
 // 处理管理员数据导入
 async function handleAdminImport(request, env, corsHeaders) {
-  if (!verifyAdminAuth(request, env)) {
+  if (!(await verifyAdminAuth(request, env))) {
     return new Response('Unauthorized', {
       status: 401,
       headers: corsHeaders
@@ -3027,7 +3214,7 @@ async function handleAdminImport(request, env, corsHeaders) {
   }
 
   try {
-    const { entries, merge, skipDuplicates } = await request.json();
+    const { entries } = await request.json();
 
     // 验证导入数据
     if (!entries || !Array.isArray(entries)) {
@@ -3102,7 +3289,7 @@ async function handleAdminImport(request, env, corsHeaders) {
 
 // 处理管理员条目操作
 async function handleAdminEntry(request, env, corsHeaders) {
-  if (!verifyAdminAuth(request, env)) {
+  if (!(await verifyAdminAuth(request, env))) {
     return new Response('Unauthorized', {
       status: 401,
       headers: corsHeaders
@@ -3176,7 +3363,7 @@ async function handleAdminEntry(request, env, corsHeaders) {
 
 // 处理管理员清理操作
 async function handleAdminClear(request, env, corsHeaders) {
-  if (!verifyAdminAuth(request, env)) {
+  if (!(await verifyAdminAuth(request, env))) {
     return new Response('Unauthorized', {
       status: 401,
       headers: corsHeaders
@@ -3222,6 +3409,133 @@ async function handleAdminClear(request, env, corsHeaders) {
     return new Response(JSON.stringify({
       success: false,
       message: '清理失败'
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+}
+
+// 处理管理员退出所有设备
+async function handleAdminLogoutAll(request, env, corsHeaders) {
+  // 验证管理员权限
+  if (!(await verifyAdminAuth(request, env))) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: '未授权访问'
+    }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+
+  try {
+    // 获取当前会话信息用于日志记录
+    let currentSessions = [];
+    try {
+      currentSessions = await env.PASTE_KV.get('admin_sessions', 'json') || [];
+    } catch (error) {
+      console.warn('Failed to get current sessions for logging:', error);
+    }
+
+    const sessionCount = currentSessions.length;
+    console.log(`Logging out all devices. Current active sessions: ${sessionCount}`);
+
+    // 清除所有会话
+    await env.PASTE_KV.put('admin_sessions', JSON.stringify([]));
+
+    // 记录操作日志
+    const clientIP = getClientIP(request);
+    const userAgent = request.headers.get('User-Agent') || 'Unknown';
+    console.log(`All devices logged out by admin from IP: ${clientIP}, User-Agent: ${userAgent}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `已成功退出所有设备登录 (共 ${sessionCount} 个会话)`
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  } catch (error) {
+    console.error('Error in handleAdminLogoutAll:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: '退出失败: ' + error.message
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+}
+
+// 处理管理员获取会话信息
+async function handleAdminGetSessions(request, env, corsHeaders) {
+  // 验证管理员权限
+  if (!(await verifyAdminAuth(request, env))) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: '未授权访问'
+    }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+
+  try {
+    // 获取所有会话
+    let sessions = [];
+    try {
+      sessions = await env.PASTE_KV.get('admin_sessions', 'json') || [];
+    } catch (error) {
+      console.warn('Failed to get sessions:', error);
+    }
+
+    // 清理过期会话（超过24小时）
+    const now = Date.now();
+    const activeSessions = sessions.filter(session => now - session.createdAt < 24 * 60 * 60 * 1000);
+
+    // 如果有会话被清理，更新存储
+    if (activeSessions.length !== sessions.length) {
+      try {
+        await env.PASTE_KV.put('admin_sessions', JSON.stringify(activeSessions));
+      } catch (error) {
+        console.warn('Failed to update sessions after cleanup:', error);
+      }
+    }
+
+    // 记录操作日志
+    const clientIP = getClientIP(request);
+    console.log(`Sessions info requested by admin from IP: ${clientIP}, Active sessions: ${activeSessions.length}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      sessions: activeSessions,
+      totalSessions: activeSessions.length
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  } catch (error) {
+    console.error('Error in handleAdminGetSessions:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: '获取会话信息失败: ' + error.message
     }), {
       status: 500,
       headers: {

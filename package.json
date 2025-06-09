@@ -15,6 +15,7 @@
     "test": "echo 'Testing basic functionality...' && curl -f http://localhost:8787 > /dev/null && echo 'Basic test passed!'",
     "build": "echo 'No build step required for Cloudflare Workers'",
     "start": "npm run dev",
+    "dev:local": "node local-dev-server.js",
     "setup": "echo 'Run npm run dev for local development or see LOCAL-DEVELOPMENT.md for details'"
   },
   "keywords": [
@@ -27,6 +28,7 @@
   "author": "paste-web",
   "license": "MIT",
   "devDependencies": {
+    "express": "^4.21.2",
     "wrangler": "^4.19.1"
   },
   "repository": {
