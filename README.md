@@ -2,6 +2,13 @@
 
 一个功能强大的网络剪贴板应用，专为 Cloudflare 部署优化，支持 Markdown 和 LaTeX 数学公式。
 
+
+- 项目地址: [GitHub - Paste Web](https://github.com/zduu/paste-web)
+- 在线演示: [Paste Web Demo](https://paste.zoeoe.de)
+
+- 初始版本使用php挂载在任意主机上，原始项目地址: [Paste Web PHP](https://github.com/123456/paste-web)
+- 演示地址: [Paste Web PHP Demo](http://zhou12203.top/paste)
+
 ## ✨ 核心特性
 
 ### 🎨 现代化界面
