@@ -46,8 +46,8 @@
    ```
    ADMIN_PASSWORD = 123456
    ACCESS_PASSWORD = (留空或设置访问密码)
-   RATE_LIMIT_MAX = 5
-   RATE_LIMIT_WINDOW = 60
+   RATE_LIMIT_MAX = 5 （可选）
+   RATE_LIMIT_WINDOW = 60 （可选）
    ```
 4. **创建 KV 存储**：
    - 创建名为 `PASTE_KV` 的 KV 命名空间
@@ -86,10 +86,14 @@ npx wrangler deploy
 ## ⚙️ 配置说明
 
 ### 环境变量
+
+- RATE_LIMIT_MAX与RATE_LIMIT_WINDOW可不在cloudflare里配置，可直接在前端修改配置，匹配值优先级前端修改（KV储存）> 环境变量 > 默认值
+- ADMIN_PASSWORD与ADMIN_PASSWORD为了安全考虑需要在cloudflare里配置
+
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
 | `ADMIN_PASSWORD` | `123456` | 管理员密码，用于访问管理面板 |
-| `ACCESS_PASSWORD` | `""` (空) | 网站访问密码，留空则无需密码访问 |
+| `ACCESS_PASSWORD` | `""` (空) | 网站访问密码，留空则无需密码访问，非空可以在管理员设置是否启用 |
 | `RATE_LIMIT_MAX` | `5` | 频率限制：每个时间窗口的最大请求数 |
 | `RATE_LIMIT_WINDOW` | `60` | 频率限制：时间窗口长度（秒） |
 

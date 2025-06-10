@@ -25,24 +25,18 @@ npm run dev
 
 **如果遇到 PowerShell 执行策略错误或"正在连接服务器..."问题，有以下解决方案：**
 
-**方案一：使用批处理文件（最简单）**
-```cmd
-# 双击运行 dev.bat 文件，或在命令行中运行：
-.\dev.bat
-```
-
-**方案二：设置执行策略**
+**方案一：设置执行策略**
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-**方案三：使用 CMD 命令行**
+**方案二：使用 CMD 命令行**
 ```cmd
 # 在 CMD 中运行（不是 PowerShell）
 npm run dev
 ```
 
-**方案四：直接运行 wrangler**
+**方案三：直接运行 wrangler**
 ```cmd
 # 在 CMD 中运行
 node_modules\.bin\wrangler dev --local

@@ -618,15 +618,18 @@ function generateAdminPage(env) {
             <h2>⚙️ 系统配置</h2>
             <div class="form-group">
                 <label for="rate-limit-max">频率限制 - 最大请求数</label>
-                <input type="number" id="rate-limit-max" value="${env.RATE_LIMIT_MAX || '5'}" min="1" max="100">
+                <input type="number" id="rate-limit-max" value="5" min="1" max="100">
+                <small class="form-text text-muted">每个时间窗口内允许的最大请求数 (1-100)</small>
             </div>
 
             <div class="form-group">
                 <label for="rate-limit-window">频率限制 - 时间窗口（秒）</label>
-                <input type="number" id="rate-limit-window" value="${env.RATE_LIMIT_WINDOW || '60'}" min="10" max="3600">
+                <input type="number" id="rate-limit-window" value="60" min="10" max="3600">
+                <small class="form-text text-muted">频率限制的时间窗口长度 (10-3600秒)</small>
             </div>
 
             <button class="btn btn-success" onclick="updateSystemConfig()">保存系统配置</button>
+            <button class="btn btn-secondary" onclick="loadSystemConfig()" style="margin-left: 10px;">重新加载配置</button>
         </div>
 
         <div class="admin-section">
@@ -800,10 +803,46 @@ function generateAdminPage(env) {
 
 
 
+        // 加载系统配置
+        async function loadSystemConfig() {
+            try {
+                const response = await fetch('/api/admin/system-config', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('rate-limit-max').value = data.rateLimitMax || 5;
+                    document.getElementById('rate-limit-window').value = data.rateLimitWindow || 60;
+                } else {
+                    console.warn('Failed to load system config, using defaults');
+                }
+            } catch (error) {
+                console.warn('Error loading system config:', error);
+            }
+        }
+
         // 更新系统配置
         async function updateSystemConfig() {
             const rateLimitMax = document.getElementById('rate-limit-max').value;
             const rateLimitWindow = document.getElementById('rate-limit-window').value;
+
+            // 前端验证
+            const maxRequests = parseInt(rateLimitMax);
+            const windowSeconds = parseInt(rateLimitWindow);
+
+            if (isNaN(maxRequests) || maxRequests < 1 || maxRequests > 100) {
+                showAlert('最大请求数必须在 1-100 之间', 'danger');
+                return;
+            }
+
+            if (isNaN(windowSeconds) || windowSeconds < 10 || windowSeconds > 3600) {
+                showAlert('时间窗口必须在 10-3600 秒之间', 'danger');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/admin/config', {
@@ -819,10 +858,11 @@ function generateAdminPage(env) {
                     })
                 });
 
-                if (response.ok) {
-                    showAlert('系统配置更新成功', 'success');
+                const result = await response.json();
+                if (result.success) {
+                    showAlert(result.message || '系统配置更新成功', 'success');
                 } else {
-                    throw new Error('更新失败');
+                    throw new Error(result.message || '更新失败');
                 }
             } catch (error) {
                 showAlert('更新系统配置失败: ' + error.message, 'danger');
@@ -1545,6 +1585,7 @@ function generateAdminPage(env) {
 
             loadAllEntries();
             loadActiveSessions();
+            loadSystemConfig();
 
             // 添加模态框点击外部关闭功能
             document.getElementById('import-modal').addEventListener('click', function(e) {
@@ -1599,6 +1640,8 @@ const worker = {
         return await handleAdminGetEntries(request, env, corsHeaders);
       } else if (path === '/api/admin/config' && method === 'POST') {
         return await handleAdminConfig(request, env, corsHeaders);
+      } else if (path === '/api/admin/system-config' && method === 'GET') {
+        return await handleAdminGetSystemConfig(request, env, corsHeaders);
       } else if (path === '/api/admin/entry' && method === 'POST') {
         return await handleAdminEntry(request, env, corsHeaders);
       } else if (path === '/api/admin/import' && method === 'POST') {
@@ -3212,17 +3255,53 @@ async function handleAdminConfig(request, env, corsHeaders) {
 
   try {
     const requestData = await request.json();
-    const { action } = requestData;
-
-    // 注意：在 Cloudflare Workers 中，环境变量是只读的
-    // 实际的密码更新需要在 Cloudflare Dashboard 中进行
-    // 这里只是返回成功响应，提示用户在 Dashboard 中更新
+    const { action, rateLimitMax, rateLimitWindow } = requestData;
 
     switch (action) {
       case 'updateSystemConfig':
+        // 验证输入参数
+        const maxRequests = parseInt(rateLimitMax);
+        const windowSeconds = parseInt(rateLimitWindow);
+
+        if (isNaN(maxRequests) || maxRequests < 1 || maxRequests > 100) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '最大请求数必须在 1-100 之间'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+
+        if (isNaN(windowSeconds) || windowSeconds < 10 || windowSeconds > 3600) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '时间窗口必须在 10-3600 秒之间'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+
+        // 保存配置到 KV 存储
+        const systemConfig = {
+          rateLimitMax: maxRequests,
+          rateLimitWindow: windowSeconds,
+          updatedAt: Date.now(),
+          updatedBy: getClientIP(request)
+        };
+
+        await env.PASTE_KV.put('system_config', JSON.stringify(systemConfig));
+
         return new Response(JSON.stringify({
           success: true,
-          message: '请在 Cloudflare Dashboard 的 Workers 设置中更新 RATE_LIMIT_MAX 和 RATE_LIMIT_WINDOW 环境变量'
+          message: '系统配置更新成功'
         }), {
           headers: {
             'Content-Type': 'application/json',
@@ -3245,7 +3324,43 @@ async function handleAdminConfig(request, env, corsHeaders) {
   } catch (error) {
     return new Response(JSON.stringify({
       success: false,
-      message: '配置更新失败'
+      message: '配置更新失败: ' + error.message
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+}
+
+// 处理管理员获取系统配置
+async function handleAdminGetSystemConfig(request, env, corsHeaders) {
+  if (!(await verifyAdminAuth(request, env))) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: corsHeaders
+    });
+  }
+
+  try {
+    const systemConfig = await getSystemConfig(env);
+
+    return new Response(JSON.stringify({
+      success: true,
+      rateLimitMax: systemConfig.rateLimitMax,
+      rateLimitWindow: systemConfig.rateLimitWindow
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: '获取系统配置失败: ' + error.message
     }), {
       status: 500,
       headers: {
@@ -3745,17 +3860,41 @@ async function handleGetEntries(kv, corsHeaders) {
   }
 }
 
+// 获取系统配置（优先级：KV存储 > 环境变量 > 默认值）
+async function getSystemConfig(env) {
+  try {
+    const storedConfig = await env.PASTE_KV.get('system_config', 'json');
+    if (storedConfig) {
+      return {
+        rateLimitMax: storedConfig.rateLimitMax || parseInt(env.RATE_LIMIT_MAX) || 5,
+        rateLimitWindow: storedConfig.rateLimitWindow || parseInt(env.RATE_LIMIT_WINDOW) || 60
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to get system config from KV:', error);
+  }
+
+  // 回退到环境变量或默认值
+  return {
+    rateLimitMax: parseInt(env.RATE_LIMIT_MAX) || 5,
+    rateLimitWindow: parseInt(env.RATE_LIMIT_WINDOW) || 60
+  };
+}
+
 // 处理保存条目
 async function handleSave(request, env, corsHeaders) {
   try {
     const clientIP = getClientIP(request);
 
+    // 获取系统配置
+    const systemConfig = await getSystemConfig(env);
+
     // 频率限制检查
     const rateLimiter = new RateLimiter(
       env.PASTE_KV,
       clientIP,
-      parseInt(env.RATE_LIMIT_MAX) || 5,
-      parseInt(env.RATE_LIMIT_WINDOW) || 60
+      systemConfig.rateLimitMax,
+      systemConfig.rateLimitWindow
     );
 
     if (!(await rateLimiter.check())) {
