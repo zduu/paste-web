@@ -580,15 +580,13 @@ function generateAdminPage(env) {
                 <label>访问密码保护</label>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <label class="toggle-switch">
-                        <input type="checkbox" id="access-protection" onchange="toggleAccessProtection()" ${env.ACCESS_PASSWORD ? 'checked' : ''}>
+                        <input type="checkbox" id="access-protection" onchange="toggleAccessProtection()">
                         <span class="slider"></span>
                     </label>
-                    <span id="access-protection-status">
-                        ${env.ACCESS_PASSWORD ? '🔒 已启用' : '🔓 未启用'}
-                    </span>
+                    <span id="access-protection-status">🔓 未启用</span>
                 </div>
-                <small style="display: block; margin-top: 8px; color: var(--text-muted);">
-                    ${env.ACCESS_PASSWORD ? '要禁用访问保护，请在 Cloudflare Dashboard 中删除 ACCESS_PASSWORD 环境变量' : '要启用访问保护，请在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量'}
+                <small id="access-protection-hint" style="display: block; margin-top: 8px; color: var(--text-muted);">
+                    正在加载配置...
                 </small>
             </div>
 
@@ -815,8 +813,35 @@ function generateAdminPage(env) {
 
                 if (response.ok) {
                     const data = await response.json();
+
+                    // 加载频率限制配置
                     document.getElementById('rate-limit-max').value = data.rateLimitMax || 5;
                     document.getElementById('rate-limit-window').value = data.rateLimitWindow || 60;
+
+                    // 加载访问密码保护配置
+                    const checkbox = document.getElementById('access-protection');
+                    const statusSpan = document.getElementById('access-protection-status');
+                    const hintSpan = document.getElementById('access-protection-hint');
+
+                    if (!data.hasAccessPassword) {
+                        // 没有设置 ACCESS_PASSWORD 环境变量
+                        checkbox.checked = false;
+                        checkbox.disabled = true;
+                        statusSpan.textContent = '🔓 未配置';
+                        hintSpan.textContent = '要启用访问保护，请先在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量';
+                    } else {
+                        // 有 ACCESS_PASSWORD 环境变量
+                        checkbox.disabled = false;
+                        checkbox.checked = data.accessProtectionEnabled;
+
+                        if (data.accessProtectionEnabled) {
+                            statusSpan.textContent = '🔒 已启用';
+                            hintSpan.textContent = '访问密码保护已启用，用户需要输入密码才能访问网站';
+                        } else {
+                            statusSpan.textContent = '🔓 未启用';
+                            hintSpan.textContent = '访问密码保护已禁用，用户可以直接访问网站';
+                        }
+                    }
                 } else {
                     console.warn('Failed to load system config, using defaults');
                 }
@@ -845,6 +870,7 @@ function generateAdminPage(env) {
             }
 
             try {
+                const accessProtectionCheckbox = document.getElementById('access-protection');
                 const response = await fetch('/api/admin/config', {
                     method: 'POST',
                     headers: {
@@ -854,7 +880,8 @@ function generateAdminPage(env) {
                     body: JSON.stringify({
                         action: 'updateSystemConfig',
                         rateLimitMax: rateLimitMax,
-                        rateLimitWindow: rateLimitWindow
+                        rateLimitWindow: rateLimitWindow,
+                        accessProtectionEnabled: accessProtectionCheckbox.checked
                     })
                 });
 
@@ -1105,18 +1132,85 @@ function generateAdminPage(env) {
             }
         }
 
-        // 切换访问保护状态显示
-        function toggleAccessProtection() {
+        // 切换访问保护状态
+        async function toggleAccessProtection() {
             const checkbox = document.getElementById('access-protection');
             const statusSpan = document.getElementById('access-protection-status');
+            const hintSpan = document.getElementById('access-protection-hint');
 
-            // 这里只是更新UI显示，实际的启用/禁用需要在 Cloudflare Dashboard 中操作
-            if (checkbox.checked) {
-                statusSpan.textContent = '🔒 已启用';
-                showAlert('要启用访问保护，请在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量', 'info');
-            } else {
-                statusSpan.textContent = '🔓 未启用';
-                showAlert('要禁用访问保护，请在 Cloudflare Dashboard 中删除 ACCESS_PASSWORD 环境变量', 'info');
+            // 检查是否有访问密码环境变量
+            try {
+                const response = await fetch('/api/admin/system-config', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (!data.hasAccessPassword) {
+                        // 没有设置 ACCESS_PASSWORD 环境变量
+                        checkbox.checked = false;
+                        statusSpan.textContent = '🔓 未启用';
+                        hintSpan.textContent = '要启用访问保护，请先在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量';
+                        showAlert('请先在 Cloudflare Dashboard 中设置 ACCESS_PASSWORD 环境变量', 'warning');
+                        return;
+                    }
+
+                    // 有 ACCESS_PASSWORD 环境变量，可以切换启用状态
+                    await updateAccessProtection(checkbox.checked);
+                } else {
+                    throw new Error('获取配置失败');
+                }
+            } catch (error) {
+                console.error('Error toggling access protection:', error);
+                showAlert('操作失败: ' + error.message, 'danger');
+                // 恢复原状态
+                checkbox.checked = !checkbox.checked;
+            }
+        }
+
+        // 更新访问保护状态
+        async function updateAccessProtection(enabled) {
+            try {
+                const response = await fetch('/api/admin/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken')
+                    },
+                    body: JSON.stringify({
+                        action: 'updateSystemConfig',
+                        rateLimitMax: document.getElementById('rate-limit-max').value,
+                        rateLimitWindow: document.getElementById('rate-limit-window').value,
+                        accessProtectionEnabled: enabled
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const statusSpan = document.getElementById('access-protection-status');
+                    const hintSpan = document.getElementById('access-protection-hint');
+
+                    if (enabled) {
+                        statusSpan.textContent = '🔒 已启用';
+                        hintSpan.textContent = '访问密码保护已启用，用户需要输入密码才能访问网站';
+                        showAlert('访问密码保护已启用', 'success');
+                    } else {
+                        statusSpan.textContent = '🔓 未启用';
+                        hintSpan.textContent = '访问密码保护已禁用，用户可以直接访问网站';
+                        showAlert('访问密码保护已禁用', 'success');
+                    }
+                } else {
+                    throw new Error(result.message || '更新失败');
+                }
+            } catch (error) {
+                showAlert('更新访问保护状态失败: ' + error.message, 'danger');
+                // 恢复原状态
+                const checkbox = document.getElementById('access-protection');
+                checkbox.checked = !enabled;
             }
         }
 
@@ -1680,7 +1774,8 @@ const worker = {
 // 处理首页
 async function handleHomePage(request, env) {
   // 检查是否需要访问密码
-  if (env.ACCESS_PASSWORD) {
+  const requiresPassword = await shouldRequireAccessPassword(env);
+  if (requiresPassword) {
     const accessToken = request.headers.get('Authorization')?.replace('Bearer ', '');
     const cookieHeader = request.headers.get('Cookie');
     const accessCookie = cookieHeader?.split(';').find(c => c.trim().startsWith('access_token='))?.split('=')[1];
@@ -3255,7 +3350,7 @@ async function handleAdminConfig(request, env, corsHeaders) {
 
   try {
     const requestData = await request.json();
-    const { action, rateLimitMax, rateLimitWindow } = requestData;
+    const { action, rateLimitMax, rateLimitWindow, accessProtectionEnabled } = requestData;
 
     switch (action) {
       case 'updateSystemConfig':
@@ -3293,6 +3388,7 @@ async function handleAdminConfig(request, env, corsHeaders) {
         const systemConfig = {
           rateLimitMax: maxRequests,
           rateLimitWindow: windowSeconds,
+          accessProtectionEnabled: accessProtectionEnabled === true,
           updatedAt: Date.now(),
           updatedBy: getClientIP(request)
         };
@@ -3350,7 +3446,9 @@ async function handleAdminGetSystemConfig(request, env, corsHeaders) {
     return new Response(JSON.stringify({
       success: true,
       rateLimitMax: systemConfig.rateLimitMax,
-      rateLimitWindow: systemConfig.rateLimitWindow
+      rateLimitWindow: systemConfig.rateLimitWindow,
+      accessProtectionEnabled: systemConfig.accessProtectionEnabled,
+      hasAccessPassword: !!env.ACCESS_PASSWORD
     }), {
       headers: {
         'Content-Type': 'application/json',
@@ -3717,10 +3815,10 @@ async function handleAdminGetSessions(request, env, corsHeaders) {
 async function handleVerifyAccess(request, env, corsHeaders) {
   try {
     const { password } = await request.json();
-    const accessPassword = env.ACCESS_PASSWORD;
+    const requiresPassword = await shouldRequireAccessPassword(env);
 
-    if (!accessPassword) {
-      // 如果没有设置访问密码，则允许访问
+    if (!requiresPassword) {
+      // 如果不需要访问密码，则允许访问
       return new Response(JSON.stringify({
         success: true
       }), {
@@ -3731,7 +3829,7 @@ async function handleVerifyAccess(request, env, corsHeaders) {
       });
     }
 
-    if (password === accessPassword) {
+    if (password === env.ACCESS_PASSWORD) {
       return new Response(JSON.stringify({
         success: true
       }), {
@@ -3867,7 +3965,8 @@ async function getSystemConfig(env) {
     if (storedConfig) {
       return {
         rateLimitMax: storedConfig.rateLimitMax || parseInt(env.RATE_LIMIT_MAX) || 5,
-        rateLimitWindow: storedConfig.rateLimitWindow || parseInt(env.RATE_LIMIT_WINDOW) || 60
+        rateLimitWindow: storedConfig.rateLimitWindow || parseInt(env.RATE_LIMIT_WINDOW) || 60,
+        accessProtectionEnabled: storedConfig.accessProtectionEnabled !== undefined ? storedConfig.accessProtectionEnabled : (env.ACCESS_PASSWORD ? true : false)
       };
     }
   } catch (error) {
@@ -3877,8 +3976,21 @@ async function getSystemConfig(env) {
   // 回退到环境变量或默认值
   return {
     rateLimitMax: parseInt(env.RATE_LIMIT_MAX) || 5,
-    rateLimitWindow: parseInt(env.RATE_LIMIT_WINDOW) || 60
+    rateLimitWindow: parseInt(env.RATE_LIMIT_WINDOW) || 60,
+    accessProtectionEnabled: env.ACCESS_PASSWORD ? true : false
   };
+}
+
+// 检查是否需要访问密码验证
+async function shouldRequireAccessPassword(env) {
+  // 如果没有设置 ACCESS_PASSWORD 环境变量，则永远不需要密码
+  if (!env.ACCESS_PASSWORD) {
+    return false;
+  }
+
+  // 如果设置了 ACCESS_PASSWORD，检查是否在管理员面板中启用了保护
+  const systemConfig = await getSystemConfig(env);
+  return systemConfig.accessProtectionEnabled;
 }
 
 // 处理保存条目
