@@ -367,6 +367,8 @@ function generateAdminPage(env) {
             max-width: 600px;
             max-height: 80vh;
             overflow-y: auto;
+            margin: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .modal-header {
@@ -435,6 +437,31 @@ function generateAdminPage(env) {
             padding: 10px;
             font-family: monospace;
             resize: vertical;
+        }
+
+        #edit-text, #edit-note {
+            width: 100%;
+            background: #222;
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        #edit-text:focus, #edit-note:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
         }
 
         .import-options {
@@ -699,6 +726,30 @@ function generateAdminPage(env) {
             </div>
         </div>
 
+        <!-- 编辑条目模态框 -->
+        <div id="edit-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>✏️ 编辑条目</h3>
+                    <span class="close" onclick="closeEditModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit-text">内容：</label>
+                        <textarea id="edit-text" rows="8" placeholder="请输入内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-note">备注：</label>
+                        <textarea id="edit-note" rows="3" placeholder="请输入备注（可选）..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="admin-section">
             <h2>🔙 返回</h2>
             <button class="btn btn-primary" onclick="window.location.href='/'">返回主页</button>
@@ -785,6 +836,7 @@ function generateAdminPage(env) {
                         <button class="btn btn-primary" onclick="toggleEntryHidden('\${entry.id}', \${entry.hidden})">
                             \${entry.hidden ? '显示' : '隐藏'}
                         </button>
+                        <button class="btn btn-info" onclick="editEntry('\${entry.id}')">编辑</button>
                         <button class="btn btn-danger" onclick="deleteEntry('\${entry.id}')">删除</button>
                     </div>
                 </div>
@@ -994,6 +1046,129 @@ function generateAdminPage(env) {
                 }
             } catch (error) {
                 showAlert('删除失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 编辑条目
+        async function editEntry(id) {
+            try {
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                // 获取当前条目数据
+                const response = await fetch('/api/admin/entries', {
+                    headers: {
+                        'Authorization': 'Bearer ' + adminToken
+                    }
+                });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('获取条目数据失败');
+                }
+
+                const entries = await response.json();
+                const entry = entries.find(e => e.id === id);
+
+                if (!entry) {
+                    showAlert('条目不存在', 'danger');
+                    return;
+                }
+
+                // 显示编辑模态框
+                showEditModal(entry);
+            } catch (error) {
+                showAlert('获取条目数据失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 显示编辑模态框
+        function showEditModal(entry) {
+            const modal = document.getElementById('edit-modal');
+            const textArea = document.getElementById('edit-text');
+            const noteArea = document.getElementById('edit-note');
+
+            textArea.value = entry.text;
+            noteArea.value = entry.note || '';
+
+            // 保存当前编辑的条目ID
+            modal.dataset.entryId = entry.id;
+
+            modal.style.display = 'flex';
+        }
+
+        // 关闭编辑模态框
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        // 保存编辑
+        async function saveEdit() {
+            try {
+                const modal = document.getElementById('edit-modal');
+                const entryId = modal.dataset.entryId;
+                const text = document.getElementById('edit-text').value.trim();
+                const note = document.getElementById('edit-note').value.trim();
+
+                if (!text) {
+                    showAlert('内容不能为空', 'warning');
+                    return;
+                }
+
+                const adminToken = sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                const response = await fetch('/api/admin/entry', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + adminToken
+                    },
+                    body: JSON.stringify({
+                        action: 'edit',
+                        id: entryId,
+                        text: text,
+                        note: note
+                    })
+                });
+
+                if (response.status === 401) {
+                    handleAuthFailure();
+                    return;
+                }
+
+                if (response.ok) {
+                    closeEditModal();
+                    loadAllEntries();
+                    showAlert('编辑成功', 'success');
+                } else {
+                    throw new Error('编辑失败');
+                }
+            } catch (error) {
+                showAlert('编辑失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const editModal = document.getElementById('edit-modal');
+            const importModal = document.getElementById('import-modal');
+
+            if (event.target === editModal) {
+                closeEditModal();
+            }
+            if (event.target === importModal) {
+                closeImportModal();
             }
         }
 
@@ -1837,31 +2012,11 @@ async function handleHomePage(request, env) {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            padding-left: 120px; /* 为管理员按钮留出空间 */
         }
 
 
 
-        .admin-link {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            padding: 8px 16px;
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
-            z-index: 10;
-        }
 
-        .admin-link:hover {
-            background: var(--accent-primary);
-            color: white;
-            transform: translateY(-1px);
-        }
         .entries-container {
             background: var(--bg-secondary);
             border-radius: 16px;
@@ -2076,6 +2231,104 @@ async function handleHomePage(request, env) {
             display: none;
         }
 
+        /* 主页面模态框样式 */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            margin: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .close {
+            color: var(--text-secondary);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-group textarea {
+            width: 100%;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 管理员访问动画 */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         .pinned {
             border-left: 4px solid var(--warning);
             background: rgba(245, 158, 11, 0.1);
@@ -2226,11 +2479,7 @@ async function handleHomePage(request, env) {
 
 
 
-            .admin-link {
-                position: static;
-                display: inline-block;
-                margin-top: 1rem;
-            }
+
 
             .entry {
                 flex-direction: column;
@@ -2278,6 +2527,11 @@ async function handleHomePage(request, env) {
 
             .entries-title {
                 font-size: 1.1rem;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10px;
             }
         }
 
@@ -2328,8 +2582,6 @@ async function handleHomePage(request, env) {
     </style>
 </head>
 <body>
-    <a href="/admin" class="admin-link">🛠️ 管理员</a>
-
     <div class="container">
 
 
@@ -2515,6 +2767,9 @@ async function handleHomePage(request, env) {
                         </button>
                         <button class="btn btn-warning" onclick="togglePin('\${entry.id}', \${entry.pinned}, event)">
                             \${entry.pinned ? '📌 取消' : '📌 置顶'}
+                        </button>
+                        <button class="btn btn-info" onclick="editEntryMain('\${entry.id}', event)">
+                            ✏️ 编辑
                         </button>
                         <button class="btn btn-danger" onclick="deleteEntry('\${entry.id}', event)">
                             🗑️ 删除
@@ -2835,7 +3090,118 @@ async function handleHomePage(request, env) {
             }
         }
 
+        // 主页面编辑条目
+        function editEntryMain(id, event) {
+            event.stopPropagation();
 
+            const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+            if (!adminToken) {
+                showToast('❌ 请先登录管理员', 'error');
+                return;
+            }
+
+            // 获取当前条目数据
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) {
+                showToast('❌ 条目不存在', 'error');
+                return;
+            }
+
+            // 显示编辑模态框
+            showEditModalMain(entry);
+        }
+
+        // 显示主页面编辑模态框
+        function showEditModalMain(entry) {
+            // 创建模态框HTML
+            const modalHtml = \`
+                <div id="edit-modal-main" class="modal" style="display: flex;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>✏️ 编辑条目</h3>
+                            <span class="close" onclick="closeEditModalMain()">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="edit-text-main">内容：</label>
+                                <textarea id="edit-text-main" rows="8" placeholder="请输入内容...">\${entry.text}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-note-main">备注：</label>
+                                <textarea id="edit-note-main" rows="3" placeholder="请输入备注（可选）...">\${entry.note || ''}</textarea>
+                            </div>
+                            <div class="modal-actions">
+                                <button class="btn btn-primary" onclick="saveEditMain('\${entry.id}')">保存</button>
+                                <button class="btn btn-secondary" onclick="closeEditModalMain()">取消</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            \`;
+
+            // 添加到页面
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // 添加点击外部关闭功能
+            const modal = document.getElementById('edit-modal-main');
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeEditModalMain();
+                }
+            };
+        }
+
+        // 关闭主页面编辑模态框
+        function closeEditModalMain() {
+            const modal = document.getElementById('edit-modal-main');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // 保存主页面编辑
+        function saveEditMain(entryId) {
+            const text = document.getElementById('edit-text-main').value.trim();
+            const note = document.getElementById('edit-note-main').value.trim();
+
+            if (!text) {
+                showToast('❌ 内容不能为空', 'warning');
+                return;
+            }
+
+            const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+            if (!adminToken) {
+                showToast('❌ 请先登录管理员', 'error');
+                return;
+            }
+
+            fetch('/api/admin/entry', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: JSON.stringify({
+                    action: 'edit',
+                    id: entryId,
+                    text: text,
+                    note: note
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    closeEditModalMain();
+                    loadEntries();
+                    showToast('✅ 编辑成功', 'success');
+                } else {
+                    showToast('❌ 编辑失败: ' + (result.message || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                showToast('❌ 网络错误', 'error');
+            });
+        }
 
         // 导出数据功能（前端版本）
         function exportData() {
@@ -2911,9 +3277,58 @@ async function handleHomePage(request, env) {
             }
         });
 
+        // 连续点击计数器
+        let clickCount = 0;
+        let clickTimer = null;
+
+        // 标头连续点击进入管理员面板
+        function initAdminAccess() {
+            const titleElement = document.querySelector('.entries-title');
+            if (titleElement) {
+                titleElement.style.cursor = 'pointer';
+                titleElement.style.userSelect = 'none';
+
+                titleElement.addEventListener('click', function() {
+                    clickCount++;
+
+                    // 清除之前的计时器
+                    if (clickTimer) {
+                        clearTimeout(clickTimer);
+                    }
+
+                    // 设置新的计时器，2秒后重置计数
+                    clickTimer = setTimeout(() => {
+                        clickCount = 0;
+                    }, 2000);
+
+                    // 如果点击5次，进入管理员面板
+                    if (clickCount >= 5) {
+                        clickCount = 0;
+                        clearTimeout(clickTimer);
+
+                        // 添加视觉反馈
+                        titleElement.style.animation = 'pulse 0.3s ease-in-out';
+                        setTimeout(() => {
+                            titleElement.style.animation = '';
+                        }, 300);
+
+                        // 跳转到管理员面板
+                        window.location.href = '/admin';
+                    } else if (clickCount >= 3) {
+                        // 3次点击后给出提示
+                        titleElement.style.color = 'var(--accent-primary)';
+                        setTimeout(() => {
+                            titleElement.style.color = '';
+                        }, 500);
+                    }
+                });
+            }
+        }
+
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             loadEntries();
+            initAdminAccess();
 
             // 自动聚焦到文本框
             const textArea = document.getElementById('new-text');
@@ -3636,6 +4051,20 @@ async function handleAdminEntry(request, env, corsHeaders) {
       case 'delete':
         const updatedEntriesDelete = entries.filter(entry => entry.id !== id);
         await env.PASTE_KV.put('entries', JSON.stringify(updatedEntriesDelete));
+        break;
+
+      case 'edit':
+        const updatedEntriesEdit = entries.map(entry => {
+          if (entry.id === id) {
+            return {
+              ...entry,
+              text: data.text || entry.text,
+              note: data.note !== undefined ? data.note : entry.note
+            };
+          }
+          return entry;
+        });
+        await env.PASTE_KV.put('entries', JSON.stringify(updatedEntriesEdit));
         break;
 
       default:
