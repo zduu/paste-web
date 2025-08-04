@@ -1746,6 +1746,8 @@ const worker = {
         return await handleAdminLogoutAll(request, env, corsHeaders);
       } else if (path === '/api/admin/sessions' && method === 'GET') {
         return await handleAdminGetSessions(request, env, corsHeaders);
+      } else if (path === '/api/admin/verify' && method === 'POST') {
+        return await handleAdminVerify(request, env, corsHeaders);
       } else if (path === '/api/verify-access' && method === 'POST') {
         return await handleVerifyAccess(request, env, corsHeaders);
       } else if (path === '/api/entries' && method === 'GET') {
@@ -1835,38 +1837,15 @@ async function handleHomePage(request, env) {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            padding-left: 120px; /* 为管理员按钮留出空间 */
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding: 2rem;
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px var(--shadow);
-        }
 
-        .header h1 {
-            margin: 0 0 0.5rem 0;
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header p {
-            margin: 0;
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }
 
         .admin-link {
             position: absolute;
             top: 20px;
-            right: 20px;
+            left: 20px;
             padding: 8px 16px;
             background: var(--bg-card);
             color: var(--text-secondary);
@@ -1875,6 +1854,7 @@ async function handleHomePage(request, env) {
             border: 1px solid var(--border);
             font-size: 0.9rem;
             transition: all 0.2s ease;
+            z-index: 10;
         }
 
         .admin-link:hover {
@@ -1917,7 +1897,7 @@ async function handleHomePage(request, env) {
         }
 
         #entries {
-            height: 60vh;
+            height: 75vh;
             overflow-y: auto;
             padding: 1rem;
         }
@@ -2241,16 +2221,10 @@ async function handleHomePage(request, env) {
         @media (max-width: 768px) {
             .container {
                 padding: 1rem;
+                padding-left: 1rem; /* 移动端恢复正常边距 */
             }
 
-            .header {
-                padding: 1.5rem;
-                margin-bottom: 1.5rem;
-            }
 
-            .header h1 {
-                font-size: 2rem;
-            }
 
             .admin-link {
                 position: static;
@@ -2295,7 +2269,7 @@ async function handleHomePage(request, env) {
             }
 
             #entries {
-                height: 50vh;
+                height: 70vh;
             }
 
             .entries-header {
@@ -2308,9 +2282,6 @@ async function handleHomePage(request, env) {
         }
 
         @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1.75rem;
-            }
 
             .entry-actions {
                 grid-template-columns: 1fr 1fr;
@@ -2360,10 +2331,7 @@ async function handleHomePage(request, env) {
     <a href="/admin" class="admin-link">🛠️ 管理员</a>
 
     <div class="container">
-        <div class="header">
-            <h1>🗂️ Paste Web</h1>
-            <p>现代化的网络剪贴板 • 支持 Markdown 和 LaTeX 公式</p>
-        </div>
+
 
         <div class="entries-container">
             <div class="entries-header">
@@ -2403,12 +2371,15 @@ async function handleHomePage(request, env) {
     </div>
     <script>
         // 加载条目（简化版本）
-        function loadEntries() {
+        async function loadEntries() {
+            // 先检查管理员状态
+            await checkAdminStatus();
+
             fetch('/api/entries')
                 .then(res => {
                     console.log('API 响应状态:', res.status, res.statusText);
                     if (!res.ok) {
-                        throw new Error(\`HTTP \${res.status}: \${res.statusText}\`);
+                        throw new Error('HTTP ' + res.status + ': ' + res.statusText);
                     }
                     return res.json();
                 })
@@ -2443,6 +2414,40 @@ async function handleHomePage(request, env) {
 
         // 全局变量存储所有条目
         let allEntries = [];
+        let isAdminLoggedIn = false;
+
+        // 检查管理员登录状态
+        async function checkAdminStatus() {
+            try {
+                const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+                if (!adminToken) {
+                    isAdminLoggedIn = false;
+                    return false;
+                }
+
+                const response = await fetch('/api/admin/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + adminToken
+                    }
+                });
+
+                isAdminLoggedIn = response.ok;
+                return isAdminLoggedIn;
+            } catch (error) {
+                isAdminLoggedIn = false;
+                return false;
+            }
+        }
+
+        // 获取 Cookie 值
+        function getCookie(name) {
+            const value = '; ' + document.cookie;
+            const parts = value.split('; ' + name + '=');
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
 
         // 显示条目
         function displayEntries(data) {
@@ -2504,6 +2509,7 @@ async function handleHomePage(request, env) {
                                 onclick="copyText(this, event)">
                             📋 复制
                         </button>
+                        \${isAdminLoggedIn ? \`
                         <button class="btn btn-secondary" onclick="toggleHidden('\${entry.id}', \${entry.hidden}, event)">
                             \${entry.hidden ? '👁️ 显示' : '🙈 隐藏'}
                         </button>
@@ -2513,6 +2519,7 @@ async function handleHomePage(request, env) {
                         <button class="btn btn-danger" onclick="deleteEntry('\${entry.id}', event)">
                             🗑️ 删除
                         </button>
+                        \` : ''}
                     </div>
                 </div>\`;
             }).join('');
@@ -2728,13 +2735,19 @@ async function handleHomePage(request, env) {
 
             if (!confirm('确定要删除这个条目吗？')) return;
 
-            const password = prompt('🔐 请输入管理员密码：');
-            if (!password) return;
+            const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+            if (!adminToken) {
+                showToast('❌ 请先登录管理员', 'error');
+                return;
+            }
 
             fetch('/api/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: \`id=\${id}&password=\${encodeURIComponent(password)}\`
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: 'id=' + id
             })
             .then(response => response.text())
             .then(result => {
@@ -2742,7 +2755,7 @@ async function handleHomePage(request, env) {
                     showToast('✅ 删除成功', 'success');
                     loadEntries();
                 } else {
-                    showToast(\`❌ 删除失败: \${result}\`, 'error');
+                    showToast('❌ 删除失败: ' + result, 'error');
                 }
             })
             .catch(error => {
@@ -2754,13 +2767,19 @@ async function handleHomePage(request, env) {
         function toggleHidden(id, isHidden, event) {
             event.stopPropagation();
 
-            const password = prompt('🔐 请输入管理员密码：');
-            if (!password) return;
+            const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+            if (!adminToken) {
+                showToast('❌ 请先登录管理员', 'error');
+                return;
+            }
 
             fetch('/api/hide', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: \`id=\${id}&hidden=\${!isHidden}&password=\${encodeURIComponent(password)}\`
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: 'id=' + id + '&hidden=' + (!isHidden)
             })
             .then(response => response.text())
             .then(result => {
@@ -2768,7 +2787,7 @@ async function handleHomePage(request, env) {
                     showToast(isHidden ? '✅ 已显示内容' : '✅ 已隐藏内容', 'success');
                     loadEntries();
                 } else {
-                    showToast(\`❌ 操作失败: \${result}\`, 'error');
+                    showToast('❌ 操作失败: ' + result, 'error');
                 }
             })
             .catch(error => {
@@ -2780,13 +2799,19 @@ async function handleHomePage(request, env) {
         function togglePin(id, isPinned, event) {
             event.stopPropagation();
 
-            const password = prompt('🔐 请输入管理员密码：');
-            if (!password) return;
+            const adminToken = getCookie('admin_token') || sessionStorage.getItem('adminToken');
+            if (!adminToken) {
+                showToast('❌ 请先登录管理员', 'error');
+                return;
+            }
 
             fetch('/api/pin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: \`id=\${id}&pinned=\${!isPinned}&password=\${encodeURIComponent(password)}\`
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: 'id=' + id + '&pinned=' + (!isPinned)
             })
             .then(response => response.text())
             .then(result => {
@@ -2794,7 +2819,7 @@ async function handleHomePage(request, env) {
                     showToast(isPinned ? '✅ 已取消置顶' : '✅ 已置顶', 'success');
                     loadEntries();
                 } else {
-                    showToast(\`❌ 操作失败: \${result}\`, 'error');
+                    showToast('❌ 操作失败: ' + result, 'error');
                 }
             })
             .catch(error => {
@@ -3269,6 +3294,28 @@ async function handleAdminLogin(request, env, corsHeaders) {
       message: '登录失败'
     }), {
       status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+}
+
+// 处理管理员验证
+async function handleAdminVerify(request, env, corsHeaders) {
+  const isValid = await verifyAdminAuth(request, env);
+
+  if (isValid) {
+    return new Response(JSON.stringify({ valid: true }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  } else {
+    return new Response(JSON.stringify({ valid: false }), {
+      status: 401,
       headers: {
         'Content-Type': 'application/json',
         ...corsHeaders
@@ -4075,16 +4122,16 @@ async function handleSave(request, env, corsHeaders) {
 // 处理删除条目
 async function handleDelete(request, env, corsHeaders) {
   try {
-    const formData = await request.formData();
-    const id = formData.get('id');
-    const password = formData.get('password');
-
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
-      return new Response('错误：管理员密码错误', {
+    // 验证管理员权限
+    if (!(await verifyAdminAuth(request, env))) {
+      return new Response('错误：管理员权限验证失败', {
         status: 401,
         headers: corsHeaders
       });
     }
+
+    const formData = await request.formData();
+    const id = formData.get('id');
 
     if (!id) {
       return new Response('错误：缺少ID参数', {
@@ -4111,17 +4158,17 @@ async function handleDelete(request, env, corsHeaders) {
 // 处理隐藏/取消隐藏条目
 async function handleHide(request, env, corsHeaders) {
   try {
-    const formData = await request.formData();
-    const id = formData.get('id');
-    const hidden = formData.get('hidden') === 'true';
-    const password = formData.get('password');
-
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
-      return new Response('错误：管理员密码错误', {
+    // 验证管理员权限
+    if (!(await verifyAdminAuth(request, env))) {
+      return new Response('错误：管理员权限验证失败', {
         status: 401,
         headers: corsHeaders
       });
     }
+
+    const formData = await request.formData();
+    const id = formData.get('id');
+    const hidden = formData.get('hidden') === 'true';
 
     const entries = await env.PASTE_KV.get('entries', 'json') || [];
     const updatedEntries = entries.map(entry => {
@@ -4146,17 +4193,17 @@ async function handleHide(request, env, corsHeaders) {
 // 处理置顶/取消置顶条目
 async function handlePin(request, env, corsHeaders) {
   try {
-    const formData = await request.formData();
-    const id = formData.get('id');
-    const pinned = formData.get('pinned') === 'true';
-    const password = formData.get('password');
-
-    if (!verifyPassword(password, env.ADMIN_PASSWORD || '123456')) {
-      return new Response('错误：管理员密码错误', {
+    // 验证管理员权限
+    if (!(await verifyAdminAuth(request, env))) {
+      return new Response('错误：管理员权限验证失败', {
         status: 401,
         headers: corsHeaders
       });
     }
+
+    const formData = await request.formData();
+    const id = formData.get('id');
+    const pinned = formData.get('pinned') === 'true';
 
     const entries = await env.PASTE_KV.get('entries', 'json') || [];
     const updatedEntries = entries.map(entry => {

@@ -5,6 +5,7 @@
   "main": "worker.js",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:lan": "wrangler dev --ip 0.0.0.0",
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production",
     "deploy:dev": "wrangler deploy --env development",
@@ -12,10 +13,12 @@
     "kv:list": "wrangler kv:key list --binding PASTE_KV",
     "kv:backup": "wrangler kv:key get entries --binding PASTE_KV > backup-$(date +%Y%m%d-%H%M%S).json",
     "kv:create": "wrangler kv:namespace create PASTE_KV && wrangler kv:namespace create PASTE_KV --preview",
-    "test": "echo 'Testing basic functionality...' && curl -f http://localhost:8787 > /dev/null && echo 'Basic test passed!'",
+    "test": "node test-local.js",
+    "test:basic": "echo 'Testing basic functionality...' && curl -f http://localhost:8787 > /dev/null && echo 'Basic test passed!'",
+    "validate": "node -c worker.js && echo 'Syntax validation passed!'",
+    "deploy:dry": "wrangler deploy --dry-run",
     "build": "echo 'No build step required for Cloudflare Workers'",
     "start": "npm run dev",
-    "dev:local": "node local-dev-server.js",
     "setup": "echo 'Run npm run dev for local development or see LOCAL-DEVELOPMENT.md for details'"
   },
   "keywords": [

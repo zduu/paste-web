@@ -149,6 +149,9 @@ npm install
 # 3. 本地开发（无需 KV 配置）
 npm run dev
 
+# 或启动支持局域网访问的服务器
+npm run dev:lan
+
 # Windows 用户如遇到执行策略错误，请先运行：
 # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
@@ -156,12 +159,14 @@ npm run dev
 ### 本地调试说明
 - **无需 KV 配置** - 本地开发时会使用内存存储，无需创建真实的 KV 命名空间
 - **热重载** - 代码修改后自动重新加载
-- **访问地址** - 默认在 `http://localhost:8787` 访问
+- **本地访问** - 默认在 `http://localhost:8787` 访问
+- **局域网访问** - 使用 `npm run dev:lan` 支持局域网设备访问
 - **管理员面板** - 访问 `http://localhost:8787/admin` 测试管理功能
 
 ### 常用命令
 ```bash
-npm run dev          # 本地开发服务器
+npm run dev          # 本地开发服务器（仅本地访问）
+npm run dev:lan      # 本地开发服务器（支持局域网访问）
 npm run deploy       # 部署到生产环境
 npm run logs         # 查看实时日志
 npm run kv:list      # 查看 KV 数据
@@ -171,9 +176,11 @@ npm run kv:create    # 创建 KV 命名空间
 
 ### 功能测试
 - **本地测试** - 启动 `npm run dev` 后访问 `http://localhost:8787`
+- **局域网测试** - 启动 `npm run dev:lan` 后在其他设备访问显示的 IP 地址
 - **Markdown 测试** - 在文本框中输入 Markdown 语法测试渲染
 - **LaTeX 测试** - 输入数学公式如 `$E=mc^2$` 测试渲染
 - **API 测试** - 所有 API 端点在本地开发时都可正常使用
+- **跨设备测试** - 在手机、平板等设备上测试响应式设计
 
 ## 📚 Markdown 和 LaTeX 支持
 

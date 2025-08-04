@@ -6,6 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 # 本地开发配置
 [dev]
 port = 8787
+ip = "0.0.0.0"  # 允许局域网访问
 
 # KV存储绑定
 # 注意：本地开发时会自动创建临时的 KV 存储
